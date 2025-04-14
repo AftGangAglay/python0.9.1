@@ -77,7 +77,8 @@ void* py_object_incref(void* p) {
 	op->refcount++;
 
 	/* TODO: Formalise this. */
-	if(op->refcount > 10000) {
+	/* TODO: Fix None leakiness. */
+	if(op != PY_NONE && op->refcount > 10000) {
 		asys_log(
 				__FILE__, "Suspicious refcount `%u' on object `%p'",
 				op->refcount, p);
