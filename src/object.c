@@ -76,6 +76,7 @@ void* py_object_incref(void* p) {
 
 	op->refcount++;
 
+#ifndef NDEBUG
 	/* TODO: Formalise this. */
 	/* TODO: Fix None leakiness. */
 	if(op != PY_NONE && op->refcount > 10000) {
@@ -83,6 +84,7 @@ void* py_object_incref(void* p) {
 				__FILE__, "Suspicious refcount `%u' on object `%p'",
 				op->refcount, p);
 	}
+#endif
 
 	return op;
 }
