@@ -8,7 +8,6 @@
 #ifndef PY_GRAMMAR_H
 #define PY_GRAMMAR_H
 
-#include <python/std.h>
 #include <python/bitset.h>
 
 /* A label of an arc */
@@ -75,8 +74,8 @@ void py_grammar_translate(struct py_grammar*);
 void py_grammar_add_firsts(struct py_grammar*);
 void py_grammar_add_accels(struct py_grammar*);
 void py_grammar_delete_accels(void);
-void py_grammar_print(struct py_grammar*, FILE*);
-void py_grammar_print_nonterminals(struct py_grammar*, FILE*);
+void py_grammar_print(struct py_grammar*, void*);
+void py_grammar_print_nonterminals(struct py_grammar*, void*);
 
 unsigned py_dfa_add_state(struct py_dfa*);
 void py_dfa_add_arc(struct py_dfa*, unsigned, unsigned, unsigned);

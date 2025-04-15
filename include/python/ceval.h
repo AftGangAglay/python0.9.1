@@ -8,7 +8,6 @@
 #ifndef PY_CEVAL_H
 #define PY_CEVAL_H
 
-#include <python/std.h>
 #include <python/object.h>
 #include <python/object/frame.h>
 

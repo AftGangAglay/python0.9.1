@@ -5,6 +5,8 @@
 
 /* Method object implementation */
 
+#include <python/std.h>
+
 #include <python/object/method.h>
 
 struct py_object* py_method_new(py_method_t method, struct py_object* self) {

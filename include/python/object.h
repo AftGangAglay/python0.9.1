@@ -8,8 +8,6 @@
 #ifndef PY_OBJECT_H
 #define PY_OBJECT_H
 
-#include <python/std.h>
-
 /*
  * Objects are structures allocated on the heap. Special rules apply to
  * the use of objects to ensure they are properly garbage-collected.

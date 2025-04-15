@@ -8,12 +8,11 @@
 #ifndef PY_BITSET_H
 #define PY_BITSET_H
 
-#include <python/std.h>
-
-#define PY_NBYTES(nbits) ((unsigned) (((nbits) + CHAR_BIT - 1) / CHAR_BIT))
-#define PY_BIT2MASK(ibit) (1 << ((ibit) % CHAR_BIT))
+#define PY_BIT (8)
+#define PY_NBYTES(nbits) ((unsigned) (((nbits) + PY_BIT - 1) / PY_BIT))
+#define PY_BIT2MASK(ibit) (1 << ((ibit) % PY_BIT))
 #define PY_TESTBIT(ss, ibit) \
-    (((ss)[(ibit) / CHAR_BIT] & PY_BIT2MASK(ibit)) != 0)
+    (((ss)[(ibit) / PY_BIT] & PY_BIT2MASK(ibit)) != 0)
 
 typedef unsigned char py_byte_t;
 typedef py_byte_t* py_bitset_t;

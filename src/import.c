@@ -7,6 +7,7 @@
 
 #include <python/state.h>
 #include <python/env.h>
+#include <python/std.h>
 #include <python/node.h>
 #include <python/token.h>
 #include <python/graminit.h>
@@ -30,11 +31,11 @@ struct py_object* py_module_add(struct py_env* env, const char* name) {
 	/* We trust that the modules dictionary only ever holds moduleobjects. */
 	if((m = py_dict_lookup(env->modules, name))) return m;
 
-	if(!(m = py_module_new(name))) return NULL;
+	if(!(m = py_module_new(name))) return 0;
 
 	if(py_dict_insert(env->modules, name, m)) {
 		py_object_decref(m);
-		return NULL;
+		return 0;
 	}
 
 	py_object_decref(m); /* Yes, it still exists, in py_modules! */
@@ -79,19 +80,19 @@ static struct py_object* py_get_module(
 
 	if(!fp) {
 		py_error_set_string(py_name_error, name);
-		return NULL;
+		return 0;
 	}
 
 	res = py_parse_file(fp, buf, &py_grammar, PY_GRAMMAR_FILE_INPUT, &n);
 
 	if(res != PY_RESULT_DONE) {
 		py_error_set_input(res);
-		return NULL;
+		return 0;
 	}
 
 	if(!(*ret = py_module_add(env, name))) {
 		py_tree_delete(n);
-		return NULL;
+		return 0;
 	}
 
 	d = ((struct py_module*) *ret)->attr;
@@ -104,7 +105,7 @@ struct py_object* py_import_module(struct py_env* env, const char* name) {
 	struct py_object* v;
 
 	if(!(m = py_dict_lookup(env->modules, name))) {
-		if(!(v = py_get_module(env, name, &m))) return NULL;
+		if(!(v = py_get_module(env, name, &m))) return 0;
 
 		py_object_decref(v);
 	}
@@ -123,7 +124,7 @@ static void py_dict_clear(struct py_object* d) {
 }
 
 void py_import_done(struct py_env* env) {
-	if(env->modules != NULL) {
+	if(env->modules) {
 		unsigned i;
 
 		/*

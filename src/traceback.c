@@ -7,8 +7,8 @@
 
 #include <python/compile.h>
 #include <python/traceback.h>
-
 #include <python/object/string.h>
+#include <python/std.h>
 
 #include <asys/log.h>
 #include <asys/stream.h>

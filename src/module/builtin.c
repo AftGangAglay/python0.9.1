@@ -46,7 +46,7 @@ static struct py_object* py_builtin_float(
 
 	py_error_set_string(
 			py_type_error, "float() argument must be float or int");
-	return NULL;
+	return 0;
 }
 
 static struct py_object* py_builtin_int(
@@ -65,7 +65,7 @@ static struct py_object* py_builtin_int(
 	}
 
 	py_error_set_string(py_type_error, "int() argument must be float or int");
-	return NULL;
+	return 0;
 }
 
 static struct py_object* py_builtin_len(
@@ -76,16 +76,16 @@ static struct py_object* py_builtin_len(
 	(void) env;
 	(void) self;
 
-	if(args == NULL) {
+	if(!args) {
 		py_error_set_string(py_type_error, "len() without argument");
-		return NULL;
+		return 0;
 	}
 
 	if(py_is_varobject(args)) len = py_varobject_size(args);
 	else if(args->type == PY_TYPE_DICT) len = ((struct py_dict*) args)->used;
 	else {
 		py_error_set_string(py_type_error, "len() of unsized object");
-		return NULL;
+		return 0;
 	}
 
 	return py_int_new(len);
@@ -113,20 +113,20 @@ static struct py_object* py_builtin_range(
 	}
 	else if(!args || args->type != PY_TYPE_TUPLE) {
 		py_error_set_string(py_type_error, errmsg);
-		return NULL;
+		return 0;
 	}
 	else {
 		n = py_varobject_size(args);
 
 		if(n < 1 || n > 3) {
 			py_error_set_string(py_type_error, errmsg);
-			return NULL;
+			return 0;
 		}
 
 		for(i = 0; i < n; i++) {
 			if(py_tuple_get(args, i)->type != PY_TYPE_INT) {
 				py_error_set_string(py_type_error, errmsg);
-				return NULL;
+				return 0;
 			}
 		}
 
@@ -144,7 +144,7 @@ static struct py_object* py_builtin_range(
 
 	if(step == 0) {
 		py_error_set_string(py_runtime_error, "zero step for range()");
-		return NULL;
+		return 0;
 	}
 
 	/* TODO: ought to check overflow of subion */
@@ -156,9 +156,9 @@ static struct py_object* py_builtin_range(
 	for(i = 0; i < n; i++) {
 		struct py_object* w = py_int_new(low);
 
-		if(w == NULL) {
+		if(!w) {
 			py_object_decref(args);
-			return NULL;
+			return 0;
 		}
 
 		py_list_set(args, i, w);
@@ -261,7 +261,8 @@ static struct py_methodlist py_builtin_methods[] = {
 		{ "insert", py_builtin_insert },
 		{ "pass", py_builtin_pass },
 		{ "notv", py_builtin_notv },
-		{ NULL, NULL } };
+		{ 0, 0 }
+};
 
 /* TODO: Python global state. */
 static struct py_object* py_builtin_dict;

@@ -33,9 +33,9 @@ struct py_object* py_tree_eval(
 
 	co = py_compile(n, filename);
 	py_tree_delete(n);
-	if(co == NULL) return NULL;
+	if(!co) return 0;
 
-	v = py_code_eval(env, co, globals, locals, (struct py_object*) NULL);
+	v = py_code_eval(env, co, globals, locals, 0);
 	py_object_decref(co);
 
 	return v;

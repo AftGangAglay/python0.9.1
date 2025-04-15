@@ -6,6 +6,7 @@
 #include <python/evalops.h>
 #include <python/env.h>
 #include <python/ceval.h>
+#include <python/std.h>
 
 #include <python/object/int.h>
 #include <python/object/func.h>
@@ -218,7 +219,7 @@ int py_object_set_attr(
 struct py_object* py_call_function(
 		struct py_env* env, struct py_object* func, struct py_object* args) {
 
-	struct py_object* arglist = NULL;
+	struct py_object* arglist = 0;
 
 	switch(func->type) {
 		default: return 0;

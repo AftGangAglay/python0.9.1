@@ -8,7 +8,6 @@
 #ifndef PY_PARSETOK_H
 #define PY_PARSETOK_H
 
-#include <python/std.h>
 #include <python/grammar.h>
 #include <python/node.h>
 

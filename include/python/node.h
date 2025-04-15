@@ -8,8 +8,6 @@
 #ifndef PY_NODE_H
 #define PY_NODE_H
 
-#include <python/std.h>
-
 struct py_env;
 
 struct py_node {
@@ -26,8 +24,6 @@ struct py_node* py_tree_new(int);
 void py_tree_delete(struct py_node* n);
 
 struct py_node* py_tree_add(struct py_node*, int, char*, unsigned);
-
-void py_tree_list(FILE*, struct py_node*);
 
 struct py_object* py_tree_run(
 		struct py_env* env, struct py_node*, const char*, struct py_object*,

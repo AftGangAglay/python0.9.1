@@ -8,7 +8,6 @@
 #ifndef PY_TOKENIZER_H
 #define PY_TOKENIZER_H
 
-#include <python/std.h>
 #include <python/result.h>
 
 /* Max indentation level */
