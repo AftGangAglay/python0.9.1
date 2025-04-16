@@ -9,8 +9,9 @@
 #include <asys/result.h>
 
 struct asys_stream;
+struct py_env;
 
-enum asys_result py_open_r(const char*, struct asys_stream**);
+enum asys_result py_open_r(struct py_env*, const char*, struct asys_stream**);
 
 #ifdef __has_attribute
 # if __has_attribute(fallthrough)

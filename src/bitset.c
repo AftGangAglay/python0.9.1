@@ -6,6 +6,7 @@
 /* Bitset primitives used by the parser generator */
 
 #include <python/bitset.h>
+#include <python/std.h>
 
 py_bitset_t py_bitset_new(unsigned nbits) {
 	return calloc(PY_NBYTES(nbits), sizeof(py_byte_t));
@@ -16,7 +17,7 @@ void py_bitset_delete(py_bitset_t ss) {
 }
 
 int py_bitset_add(py_bitset_t ss, unsigned ibit) {
-	unsigned ibyte = ibit / CHAR_BIT;
+	unsigned ibyte = ibit / PY_BIT;
 	py_byte_t mask = PY_BIT2MASK(ibit);
 
 	if(ss[ibyte] & mask) return 0; /* Bit already set */

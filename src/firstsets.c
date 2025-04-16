@@ -7,6 +7,7 @@
 
 #include <python/errors.h>
 #include <python/grammar.h>
+#include <python/std.h>
 #include <python/token.h>
 
 /* Forward */

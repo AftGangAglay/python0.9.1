@@ -10,6 +10,7 @@
 #include <python/token.h>
 #include <python/errors.h>
 #include <python/node.h>
+#include <python/std.h>
 #include <python/grammar.h>
 #include <python/metagrammar.h>
 #include <python/pgen.h>
@@ -49,7 +50,7 @@ static unsigned py_nfa_add_state(struct py_nfa* nf) {
 	void* newptr = realloc(
 			nf->states, (nf->count + 1) * sizeof(struct py_nfa_state));
 	/* TODO: Better EH. */
-	if(newptr == NULL) {
+	if(!newptr) {
 		free(nf->states);
 		py_fatal("out of mem");
 	}
@@ -57,7 +58,7 @@ static unsigned py_nfa_add_state(struct py_nfa* nf) {
 
 	st = &nf->states[nf->count++];
 	st->count = 0;
-	st->arcs = NULL;
+	st->arcs = 0;
 
 	return (unsigned) (st - nf->states);
 }
@@ -73,7 +74,7 @@ static void py_nfa_add_arc(
 
 	newptr = realloc(st->arcs, (st->count + 1) * sizeof(struct py_nfa_arc));
 	/* TODO: Better EH. */
-	if(newptr == NULL) {
+	if(!newptr) {
 		free(newptr);
 		py_fatal("out of mem");
 	}
@@ -90,12 +91,12 @@ static struct py_nfa* py_nfa_new(char* name) {
 
 	nf = malloc(sizeof(struct py_nfa));
 	/* TODO: Better EH. */
-	if(nf == NULL) py_fatal("no mem for new nfa");
+	if(!nf) py_fatal("no mem for new nfa");
 
 	nf->type = type++;
 	nf->name = name; /* TODO: strdup(name) ??? */
 	nf->count = 0;
-	nf->states = NULL;
+	nf->states = 0;
 	nf->start = nf->finish = (unsigned) -1;
 
 	return nf;
@@ -106,12 +107,12 @@ static struct py_nfa_grammar* py_nfa_grammar_new(void) {
 
 	gr = malloc(sizeof(struct py_nfa_grammar));
 	/* TODO: Better EH. */
-	if(gr == NULL) py_fatal("no mem for new nfa grammar");
+	if(!gr) py_fatal("no mem for new nfa grammar");
 
 	gr->count = 0;
-	gr->nfas = NULL;
+	gr->nfas = 0;
 	gr->labellist.count = 0;
-	gr->labellist.label = NULL;
+	gr->labellist.label = 0;
 	py_labellist_add(&gr->labellist, PY_ENDMARKER, "EMPTY");
 
 	return gr;
@@ -382,13 +383,13 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 	py_nfa_add_closure(ss, nf, nf->start);
 	states = malloc(sizeof(struct py_ss_state));
 	/* TODO: Better EH. */
-	if(states == NULL) py_fatal("no mem for state in py_dfa_new");
+	if(!states) py_fatal("no mem for state in py_dfa_new");
 
 	nstates = 1;
 	current = &states[0];
 	current->bitset = ss;
 	current->count = 0;
-	current->arcs = NULL;
+	current->arcs = 0;
 	current->deleted = 0;
 	current->finish = PY_TESTBIT(ss, nf->finish);
 
@@ -427,7 +428,7 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 				newptr = realloc(
 						current->arcs,
 						(current->count + 1) * sizeof(struct py_ss_arc));
-				if(newptr == NULL) {
+				if(!newptr) {
 					/* TODO: Better EH. */
 					free(newptr);
 					py_fatal("out of mem");
@@ -461,7 +462,7 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 			}
 
 			newptr = realloc(states, (nstates + 1) * sizeof(struct py_ss_state));
-			if(newptr == NULL) {
+			if(!newptr) {
 				/* TODO: Bestter EH. */
 				free(states);
 				py_fatal("out of mem");
@@ -472,7 +473,7 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 			current = &states[nstates++];
 			current->bitset = ss_arc->bitset;
 			current->count = 0;
-			current->arcs = NULL;
+			current->arcs = 0;
 			current->deleted = 0;
 			current->finish = PY_TESTBIT(current->bitset, nf->finish);
 			done:;
@@ -604,7 +605,7 @@ static struct py_grammar* py_nfa_grammar_tables(struct py_nfa_grammar* gr) {
 	struct py_dfa* d;
 	struct py_grammar* g;
 
-	if(gr->count == 0) return NULL;
+	if(gr->count == 0) return 0;
 
 	g = py_grammar_new(gr->nfas[0]->type);
 	/* TODO: first rule must be start rule */

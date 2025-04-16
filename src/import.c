@@ -72,7 +72,7 @@ static struct py_object* py_get_module(
 		memcpy(buf + pathlen + namlen, suffix, sizeof(suffix));
 
 		/* TODO: Better EH. */
-		if(py_open_r(buf, &fp)) {
+		if(py_open_r(env, buf, &fp)) {
 			py_error_set_string(py_system_error, buf);
 			return 0;
 		}

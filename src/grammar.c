@@ -7,6 +7,7 @@
 
 #include <python/token.h>
 #include <python/grammar.h>
+#include <python/std.h>
 #include <python/errors.h>
 
 struct py_grammar* py_grammar_new(int start) {

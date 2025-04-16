@@ -6,6 +6,7 @@
 /* Print a bunch of C initializers that represent a grammar */
 
 #include <python/grammar.h>
+#include <python/std.h>
 
 /* Forward */
 static void py_grammar_print_states(struct py_grammar*, FILE*);
@@ -16,7 +17,7 @@ static void py_grammar_print_labels(struct py_grammar*, FILE*);
 
 /* TODO: Stream EH. */
 
-void py_grammar_print(struct py_grammar* g, FILE* fp) {
+void py_grammar_print(struct py_grammar* g, void* fp) {
 	fprintf(fp, "#include <python/grammar.h>\n");
 	py_grammar_print_dfas(g, fp);
 	py_grammar_print_labels(g, fp);
@@ -29,7 +30,7 @@ void py_grammar_print(struct py_grammar* g, FILE* fp) {
 	fprintf(fp, "};\n");
 }
 
-void py_grammar_print_nonterminals(struct py_grammar* g, FILE* fp) {
+void py_grammar_print_nonterminals(struct py_grammar* g, void* fp) {
 	struct py_dfa* d;
 	unsigned i;
 
