@@ -8,10 +8,10 @@
 #include <python/compile.h>
 #include <python/traceback.h>
 #include <python/object/string.h>
-#include <python/std.h>
 
 #include <asys/log.h>
 #include <asys/stream.h>
+#include <asys/memory.h>
 
 /* TODO: Python global state. */
 static struct py_traceback* py_traceback_current = 0;
@@ -113,5 +113,5 @@ void py_traceback_dealloc(struct py_object* op) {
 	py_object_decref(tb->next);
 	py_object_decref(tb->frame);
 
-	free(op);
+	asys_memory_free(op);
 }
