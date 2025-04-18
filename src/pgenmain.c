@@ -60,22 +60,15 @@ int main(int argc, char** argv) {
 }
 
 struct py_grammar* py_load_grammar(const char* filename) {
-	FILE* fp;
 	struct asys_stream stream;
 	struct py_node* n;
 	struct py_grammar* g0, * g;
 
-	fp = fopen(filename, "r");
-	if(fp == NULL) {
-		perror(filename);
-		exit(1);
-	}
 	g0 = &py_meta_grammar;
 	n = NULL;
 	/* TODO: Better EH and cleanups. */
 	asys_stream_new(&stream, filename);
 	py_parse_file(&stream, filename, g0, g0->start, &n);
-	fclose(fp);
 	if(n == NULL) {
 		fprintf(stderr, "Parsing error.\n");
 		exit(1);
