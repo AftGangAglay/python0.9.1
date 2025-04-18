@@ -71,7 +71,7 @@ struct py_dfa* py_grammar_add_dfa(struct py_grammar*, int, char*);
 struct py_dfa* py_grammar_find_dfa(struct py_grammar*, unsigned);
 
 void py_grammar_translate(struct py_grammar*);
-void py_grammar_add_firsts(struct py_grammar*);
+int py_grammar_add_firsts(struct py_grammar*);
 void py_grammar_add_accels(struct py_grammar*);
 void py_grammar_delete_accels(void);
 void py_grammar_print(struct py_grammar*, void*);

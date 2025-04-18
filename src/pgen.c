@@ -628,7 +628,10 @@ struct py_grammar* py_grammar_gen(struct py_node* n) {
 	gr = py_node_compile_meta(n);
 	g = py_nfa_grammar_tables(gr);
 	py_grammar_translate(g);
-	py_grammar_add_firsts(g);
+
+	if(py_grammar_add_firsts(g) == -1) {
+		return 0;
+	}
 
 	return g;
 }

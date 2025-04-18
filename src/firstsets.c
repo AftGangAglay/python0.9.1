@@ -7,38 +7,24 @@
 
 #include <python/errors.h>
 #include <python/grammar.h>
-#include <python/std.h>
 #include <python/token.h>
 
-/* Forward */
-static void py_grammar_calculate_first_set(struct py_grammar*, struct py_dfa*);
+#include <asys/log.h>
+#include <asys/memory.h>
 
-void py_grammar_add_firsts(struct py_grammar* g) {
-	unsigned i;
-	struct py_dfa* d;
-
-	for(i = 0; i < g->count; i++) {
-		d = &g->dfas[i];
-		if(d->first == NULL) {
-			py_grammar_calculate_first_set(g, d);
-		}
-	}
-}
-
-/* TODO: Give this a cleanup. */
-static void py_grammar_calculate_first_set(
+static int py_grammar_calculate_first_set(
 		struct py_grammar* g, struct py_dfa* d) {
 
 	static py_bitset_t dummy;
 
-	unsigned i, j;
+	unsigned i, j, nbits, nsyms, type;
+
+	unsigned* sym;
+
+	py_bitset_t result;
+
 	struct py_state* s;
 	struct py_arc* a;
-	unsigned nbits;
-	unsigned nsyms;
-	unsigned* sym;
-	py_bitset_t result;
-	int type;
 	struct py_dfa* d1;
 	struct py_label* l0;
 
@@ -46,29 +32,32 @@ static void py_grammar_calculate_first_set(
 	if(!(dummy = py_bitset_new(1))) py_fatal("out of memory");
 
 	if(d->first == dummy) {
-		/* TODO: Better EH. */
-		fprintf(stderr, "Left-recursion for '%s'\n", d->name);
-		return;
+		asys_log(__FILE__, "warn: Left-recursion for '%s'", d->name);
+		return 0;
 	}
 
-	if(d->first != NULL) {
-		fprintf(stderr, "Re-calculating FIRST set for '%s' ???\n", d->name);
+	if(d->first) {
+		asys_log(
+				__FILE__, "warn: Re-calculating FIRST set for '%s' ???",
+				d->name);
 	}
 
 	d->first = dummy;
 
 	l0 = g->labels.label;
 	nbits = g->labels.count;
-	result = py_bitset_new(nbits);
 
-	sym = malloc(sizeof(unsigned));
-	if(sym == NULL) {
-		/* TODO: Better EH. */
-		py_fatal("no mem for new sym in py_grammar_calculate_first_set");
+	result = py_bitset_new(nbits);
+	if(!result) return -1;
+
+	sym = asys_memory_allocate(sizeof(unsigned));
+	if(!sym) {
+		py_bitset_delete(result);
+		return -1;
 	}
 
 	nsyms = 1;
-	sym[0] = py_labellist_find(&g->labels, d->type, NULL);
+	sym[0] = py_labellist_find(&g->labels, d->type, 0);
 
 	s = &d->states[d->initial];
 
@@ -80,15 +69,10 @@ static void py_grammar_calculate_first_set(
 		}
 
 		if(j >= nsyms) { /* New label */
-			void* newptr;
-			if(!(newptr = realloc(sym, (nsyms + 1) * sizeof(unsigned)))) {
-				/* TODO: Better EH. */
-				free(sym);
-				py_fatal(
-						"no mem to resize sym in "
-						"py_grammar_calculate_first_set");
-			}
-			sym = newptr;
+			sym = asys_memory_reallocate_safe(
+					sym, (nsyms + 1) * sizeof(unsigned));
+
+			if(!sym) return -1;
 
 			sym[nsyms++] = a->label;
 			type = l0[a->label].type;
@@ -97,13 +81,15 @@ static void py_grammar_calculate_first_set(
 				d1 = py_grammar_find_dfa(g, type);
 
 				if(d1->first == dummy) {
-					/* TODO: Better EH? */
-					fprintf(stderr, "Left-recursion below '%s'\n", d->name);
+					asys_log(
+							__FILE__,
+							"warn: Left-recursion for '%s'", d->name);
 				}
 				else {
-					if(d1->first == NULL) {
+					if(!d1->first) {
 						py_grammar_calculate_first_set(g, d1);
 					}
+
 					py_bitset_merge(result, d1->first, nbits);
 				}
 			}
@@ -112,4 +98,21 @@ static void py_grammar_calculate_first_set(
 	}
 
 	d->first = result;
+
+	return 0;
+}
+
+int py_grammar_add_firsts(struct py_grammar* g) {
+	unsigned i;
+	struct py_dfa* d;
+
+	for(i = 0; i < g->count; i++) {
+		d = &g->dfas[i];
+
+		if(!d->first) {
+			if(py_grammar_calculate_first_set(g, d) == -1) return -1;
+		}
+	}
+
+	return 0;
 }
