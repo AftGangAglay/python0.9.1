@@ -16,7 +16,7 @@
 #include <python/parser.h>
 #include <python/result.h>
 
-struct py_dfa* py_grammar_find_dfa(struct py_grammar* g, int type) {
+struct py_dfa* py_grammar_find_dfa(struct py_grammar* g, unsigned type) {
 	unsigned i;
 	struct py_dfa* d;
 

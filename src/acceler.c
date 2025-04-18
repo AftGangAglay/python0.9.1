@@ -14,23 +14,27 @@
    are not part of the static data structure written on graminit.[ch]
    by the parser generator. */
 
-#include <python/std.h>
 #include <python/grammar.h>
 #include <python/token.h>
 #include <python/parser.h>
 
-/* TODO: This isn't a great system. */
-static int** freelist = 0;
-static int freelist_len = 0;
+#include <asys/memory.h>
+#include <asys/log.h>
 
-static void fixstate(struct py_grammar* g, struct py_state* s) {
+/* TODO: This isn't a great system. */
+static int** py_grammar_freelist = 0;
+static unsigned py_grammar_freelist_len = 0;
+
+static int py_grammar_fix_state(struct py_grammar* g, struct py_state* s) {
 	struct py_arc* a;
 	unsigned k;
 	int* accel;
 	unsigned nl = g->labels.count;
 
 	s->accept = 0;
-	accel = malloc(nl * sizeof(int));
+
+	accel = asys_memory_allocate(nl * sizeof(int));
+	if(!accel) return -1;
 
 	for(k = 0; k < nl; k++) accel[k] = -1;
 	a = s->arcs;
@@ -38,28 +42,30 @@ static void fixstate(struct py_grammar* g, struct py_state* s) {
 	for(k = 0; k < s->count; ++k, ++a) {
 		unsigned lbl = a->label;
 		struct py_label* l = &g->labels.label[lbl];
-		int type = l->type;
+		unsigned type = l->type;
 
 		if(a->arrow >= (1 << 7)) {
-			printf("XXX too many states!\n");
+			asys_log(__FILE__, "warn: Too many states");
 			continue;
 		}
 
 		if(type >= PY_NONTERMINAL) {
 			struct py_dfa* d1 = py_grammar_find_dfa(g, type);
-			unsigned ibit;
+			unsigned bit;
 
 			if(type - PY_NONTERMINAL >= (1 << 7)) {
-				printf("XXX too high nonterminal number!\n");
+				asys_log(__FILE__, "warn: Non-terminal number too high");
 				continue;
 			}
 
-			for(ibit = 0; ibit < g->labels.count; ibit++) {
-				if(PY_TESTBIT(d1->first, ibit)) {
-					if(accel[ibit] != -1) printf("XXX ambiguity!\n");
+			for(bit = 0; bit < g->labels.count; bit++) {
+				if(PY_TESTBIT(d1->first, bit)) {
+					if(accel[bit] != -1) {
+						asys_log(__FILE__, "warn: Accelerator ambiguity");
+					}
 
-					accel[ibit] = a->arrow | (1 << 7);
-					accel[ibit] |= ((type - PY_NONTERMINAL) << 8);
+					accel[bit] = a->arrow | (1 << 7);
+					accel[bit] |= ((type - PY_NONTERMINAL) << 8);
 				}
 			}
 		}
@@ -72,37 +78,33 @@ static void fixstate(struct py_grammar* g, struct py_state* s) {
 
 	if(k < nl) {
 		int i;
-		void* newptr;
 
-		/* TODO: Better EH. */
-		if(!(s->accel = malloc((nl - k) * sizeof(int)))) {
-			fprintf(stderr, "no mem to add parser accelerators\n");
-			exit(1);
-		}
+		s->accel = asys_memory_allocate((nl - k) * sizeof(int));
+		if(!s->accel) return -1;
 
-		if(!(newptr = realloc(freelist, ++freelist_len * sizeof(int*)))) {
-			free(freelist);
-			fprintf(stderr, "no mem to add parser accelerators\n");
-			exit(1);
-		}
-		freelist = newptr;
+		py_grammar_freelist = asys_memory_reallocate_safe(
+				py_grammar_freelist, ++py_grammar_freelist_len * sizeof(int*));
 
-		freelist[freelist_len - 1] = s->accel;
+		if(!py_grammar_freelist) return -1;
+
+		py_grammar_freelist[py_grammar_freelist_len - 1] = s->accel;
 		s->lower = k;
 		s->upper = nl;
 
 		for(i = 0; k < nl; i++, k++) s->accel[i] = accel[k];
 	}
 
-	free(accel);
+	asys_memory_free(accel);
+
+	return 0;
 }
 
-static void fixdfa(struct py_grammar* g, struct py_dfa* d) {
+static void py_grammar_fix_dfa(struct py_grammar* g, struct py_dfa* d) {
 	struct py_state* s;
 	unsigned j;
 
 	s = d->states;
-	for(j = 0; j < d->count; j++, s++) fixstate(g, s);
+	for(j = 0; j < d->count; j++, s++) py_grammar_fix_state(g, s);
 }
 
 void py_grammar_add_accels(struct py_grammar* g) {
@@ -111,13 +113,17 @@ void py_grammar_add_accels(struct py_grammar* g) {
 
 	d = g->dfas;
 
-	for(i = 0; i < g->count; ++i, ++d) fixdfa(g, d);
+	for(i = 0; i < g->count; ++i, ++d) py_grammar_fix_dfa(g, d);
 
 	g->accel = 1;
 }
 
 void py_grammar_delete_accels(void) {
-	int i;
-	for(i = 0; i < freelist_len; ++i) free(freelist[i]);
-	free(freelist);
+	unsigned i;
+
+	for(i = 0; i < py_grammar_freelist_len; ++i) {
+		asys_memory_free(py_grammar_freelist[i]);
+	}
+
+	asys_memory_free(py_grammar_freelist);
 }

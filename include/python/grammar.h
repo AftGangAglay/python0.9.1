@@ -46,7 +46,7 @@ struct py_state {
 
 /* A DFA */
 struct py_dfa {
-	int type; /* Non-terminal this represents */
+	unsigned type; /* Non-terminal this represents */
 	char* name; /* For printing */
 	int initial; /* Initial state */
 
@@ -68,7 +68,7 @@ struct py_grammar {
 /* FUNCTIONS */
 struct py_grammar* py_grammar_new(int);
 struct py_dfa* py_grammar_add_dfa(struct py_grammar*, int, char*);
-struct py_dfa* py_grammar_find_dfa(struct py_grammar*, int);
+struct py_dfa* py_grammar_find_dfa(struct py_grammar*, unsigned);
 
 void py_grammar_translate(struct py_grammar*);
 void py_grammar_add_firsts(struct py_grammar*);
