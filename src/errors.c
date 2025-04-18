@@ -37,14 +37,11 @@
  * py_error_set_value() has to be changed.
  */
 
-#include <python/std.h>
 #include <python/result.h>
 #include <python/errors.h>
 
 #include <python/object.h>
 #include <python/object/string.h>
-#include <python/object/tuple.h>
-#include <python/object/int.h>
 
 /* Last exception stored by py_error_set_value() */
 
@@ -63,7 +60,7 @@ void py_error_set_value(struct py_object* exception, struct py_object* value) {
 }
 
 void py_error_set(struct py_object* exception) {
-	py_error_set_value(exception, (struct py_object*) NULL);
+	py_error_set_value(exception, 0);
 }
 
 void py_error_set_string(struct py_object* exception, const char* string) {
@@ -78,21 +75,21 @@ int py_error_set_key(void) {
 }
 
 int py_error_occurred(void) {
-	return last_exception != NULL;
+	return !!last_exception;
 }
 
 void py_error_get(struct py_object** p_exc, struct py_object** p_val) {
 	*p_exc = last_exception;
-	last_exception = NULL;
+	last_exception = 0;
 	*p_val = last_exc_val;
-	last_exc_val = NULL;
+	last_exc_val = 0;
 }
 
 void py_error_clear(void) {
 	py_object_decref(last_exception);
-	last_exception = NULL;
+	last_exception = 0;
 	py_object_decref(last_exc_val);
-	last_exc_val = NULL;
+	last_exc_val = 0;
 }
 
 /* Convenience functions to set a type error exception and return 0 */
@@ -105,7 +102,7 @@ int py_error_set_badarg(void) {
 
 struct py_object* py_error_set_nomem(void) {
 	py_error_set(py_memory_error);
-	return NULL;
+	return 0;
 }
 
 void py_error_set_badcall(void) {

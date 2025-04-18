@@ -6,7 +6,6 @@
 #include <python/evalops.h>
 #include <python/env.h>
 #include <python/ceval.h>
-#include <python/std.h>
 
 #include <python/object/int.h>
 #include <python/object/func.h>
@@ -18,7 +17,7 @@
 #include <python/object/list.h>
 #include <python/object/class.h>
 
-#include <asys/log.h>
+#include <asys/math.h>
 
 /* Test a value used as condition, e.g., in a for or if statement */
 int py_object_truthy(struct py_object* v) {
@@ -98,7 +97,7 @@ struct py_object* py_object_mod(struct py_object* v, struct py_object* w) {
 		return py_int_new(py_int_get(v) % py_int_get(w));
 	}
 	else if(v->type == PY_TYPE_FLOAT && w->type == PY_TYPE_FLOAT) {
-		return py_float_new(fmod(py_float_get(v), py_float_get(w)));
+		return py_float_new(asys_fmod(py_float_get(v), py_float_get(w)));
 	}
 
 	return 0;

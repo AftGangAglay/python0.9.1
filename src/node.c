@@ -5,19 +5,16 @@
 
 /* Parse tree node implementation */
 
-#include <python/std.h>
 #include <python/node.h>
 
+#include <asys/memory.h>
+
 struct py_node* py_tree_new(int type) {
-	struct py_node* n = malloc(sizeof(struct py_node));
-	if(n == NULL) {
-		return NULL;
-	}
+	struct py_node* n = asys_memory_allocate_zero(1, sizeof(struct py_node));
+	if(!n) return 0;
+
 	n->type = type;
-	n->str = NULL;
-	n->lineno = 0;
-	n->count = 0;
-	n->children = NULL;
+
 	return n;
 }
 
@@ -35,26 +32,22 @@ struct py_node* py_tree_add(
 	struct py_node* n;
 
 	if(PY_ROUND_UP(nch) < nch1) {
-		void* newptr;
-
 		n = n1->children;
 		nch1 = PY_ROUND_UP(nch1);
 
-		newptr = realloc(n, nch1 * sizeof(struct py_node));
-		if(newptr == NULL) {
-			free(n);
-			return NULL;
-		}
-		n = newptr;
+		n = asys_memory_reallocate_safe(n, nch1 * sizeof(struct py_node));
+		if(!n) return 0;
 
 		n1->children = n;
 	}
+
 	n = &n1->children[n1->count++];
 	n->type = type;
 	n->str = str;
 	n->lineno = lineno;
 	n->count = 0;
-	n->children = NULL;
+	n->children = 0;
+
 	return n;
 }
 
@@ -63,13 +56,13 @@ static void py_tree_free_children(struct py_node* n) {
 
 	for(i = 0; i < n->count; ++i) py_tree_free_children(&n->children[i]);
 
-	if(n->children != NULL) free(n->children);
-	if(n->str != NULL) free(n->str);
+	if(n->children) asys_memory_free(n->children);
+	if(n->str) asys_memory_free(n->str);
 }
 
 void py_tree_delete(struct py_node* n) {
-	if(n != NULL) {
+	if(n) {
 		py_tree_free_children(n);
-		free(n);
+		asys_memory_free(n);
 	}
 }

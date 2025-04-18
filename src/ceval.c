@@ -6,7 +6,6 @@
 /* Execute compiled code */
 
 #include <python/state.h>
-#include <python/std.h>
 #include <python/env.h>
 #include <python/evalops.h>
 #include <python/import.h>
@@ -54,7 +53,7 @@ struct py_object* py_code_eval(
 	int oparg = 0; /* Current opcode argument, if any */
 
 	struct py_object** stack_pointer;
-	unsigned lineno = UINT_MAX; /* Current line number */
+	unsigned lineno = (unsigned) -1; /* Current line number */
 
 	struct py_object* x = PY_NONE; /* Result object -- NULL if error */
 	struct py_object* v; /* Temporary objects popped off stack */
