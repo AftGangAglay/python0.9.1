@@ -5,14 +5,16 @@
 
 /* Tuple object implementation */
 
-#include <python/std.h>
-
 #include <python/object/tuple.h>
+
+#include <asys/memory.h>
 
 struct py_object* py_tuple_new(unsigned size) {
 	struct py_tuple* op;
 
-	op = calloc(1, sizeof(struct py_tuple) + size * sizeof(struct py_object*));
+	op = asys_memory_allocate_zero(
+			1, sizeof(struct py_tuple) + size * sizeof(struct py_object*));
+
 	if(!op) return 0;
 
 	py_object_newref(op);
@@ -42,13 +44,11 @@ void py_tuple_dealloc(struct py_object* op) {
 		py_object_decref(((struct py_tuple*) op)->item[i]);
 	}
 
-	free(op);
+	asys_memory_free(op);
 }
 
 int py_tuple_cmp(const struct py_object* v, const struct py_object* w) {
-	unsigned a, b;
-	unsigned len;
-	unsigned i;
+	unsigned a, b, len, i;
 
 	a = py_varobject_size(v);
 	b = py_varobject_size(w);

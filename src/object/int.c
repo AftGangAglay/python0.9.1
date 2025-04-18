@@ -5,10 +5,10 @@
 
 /* Integer object implementation */
 
-#include <python/std.h>
-
 #include <python/object/int.h>
 #include <python/object/string.h>
+
+#include <asys/memory.h>
 
 /* Standard Booleans */
 struct py_int py_true_object = { { PY_TYPE_INT, 1 }, 1 };
@@ -30,15 +30,14 @@ struct py_int py_false_object = { { PY_TYPE_INT, 1 }, 0 };
 #define PY_INT_COUNT (PY_INT_BLOCK_SIZE / sizeof(struct py_int))
 
 /* TODO: Python global state. */
-static struct py_int* py_int_freelist = NULL;
+static struct py_int* py_int_freelist = 0;
 
 static enum py_result py_int_freelist_fill(void) {
 	struct py_int* p;
 	struct py_int* q;
 
-	if(!(p = calloc(PY_INT_COUNT, sizeof(struct py_int)))) {
-		return PY_RESULT_OOM;
-	}
+	p = asys_memory_allocate_zero(PY_INT_COUNT, sizeof(struct py_int));
+	if(!p) return PY_RESULT_OOM;
 
 	q = p + PY_INT_COUNT;
 

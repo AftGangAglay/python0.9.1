@@ -5,10 +5,10 @@
 
 /* Function object implementation */
 
-#include <python/std.h>
-
 #include <python/object.h>
 #include <python/object/func.h>
+
+#include <asys/memory.h>
 
 struct py_object* py_func_new(
 		struct py_object* code, struct py_object* globals) {
@@ -29,5 +29,5 @@ void py_func_dealloc(struct py_object* op) {
 	py_object_decref(fp->code);
 	py_object_decref(fp->globals);
 
-	free(op);
+	asys_memory_free(op);
 }

@@ -5,12 +5,13 @@
 
 /* Frame object implementation */
 
-#include <python/std.h>
 #include <python/compile.h>
 #include <python/opcode.h>
 
 #include <python/object/frame.h>
 #include <python/object/dict.h>
+
+#include <asys/memory.h>
 
 struct py_frame* py_frame_new(
 		struct py_frame* back, struct py_code* code, struct py_object* globals,
@@ -25,13 +26,15 @@ struct py_frame* py_frame_new(
 	f->globals = py_object_incref(globals);
 	f->locals = py_object_incref(locals);
 
-	if(!(f->valuestack = calloc(nvalues + 1, sizeof(struct py_object*)))) {
-		goto cleanup;
-	}
+	f->valuestack = asys_memory_allocate_zero(
+			nvalues + 1, sizeof(struct py_object*));
 
-	if(!(f->blockstack = calloc(nblocks + 1, sizeof(struct py_block)))) {
-		goto cleanup;
-	}
+	if(!f->valuestack) goto cleanup;
+
+	f->blockstack = asys_memory_allocate_zero(
+			nblocks + 1, sizeof(struct py_block));
+
+	if(!f->blockstack) goto cleanup;
 
 	f->nblocks = nblocks;
 	f->iblock = 0;
@@ -69,8 +72,8 @@ void py_frame_dealloc(struct py_object* op) {
 	py_object_decref(f->globals);
 	py_object_decref(f->locals);
 
-	free(f->valuestack);
-	free(f->blockstack);
+	asys_memory_free(f->valuestack);
+	asys_memory_free(f->blockstack);
 
-	free(op);
+	asys_memory_free(op);
 }

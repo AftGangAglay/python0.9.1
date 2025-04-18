@@ -5,9 +5,9 @@
 
 /* Method object implementation */
 
-#include <python/std.h>
-
 #include <python/object/method.h>
+
+#include <asys/memory.h>
 
 struct py_object* py_method_new(py_method_t method, struct py_object* self) {
 	struct py_method* op;
@@ -25,5 +25,5 @@ struct py_object* py_method_new(py_method_t method, struct py_object* self) {
 void py_method_dealloc(struct py_object* op) {
 	py_object_decref(((struct py_method*) op)->self);
 
-	free(op);
+	asys_memory_free(op);
 }

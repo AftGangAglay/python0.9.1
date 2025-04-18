@@ -5,20 +5,21 @@
 
 /* String object implementation */
 
-#include <python/std.h>
-
 #include <python/object/string.h>
+
+#include <asys/memory.h>
+#include <asys/string.h>
 
 struct py_object* py_string_new_size(const char* str, unsigned size) {
 	struct py_string* op;
 
-	if(!(op = malloc(sizeof(struct py_string) + size))) return 0;
+	if(!(op = asys_memory_allocate(sizeof(struct py_string) + size))) return 0;
 
 	py_object_newref(op);
 	op->ob.type = PY_TYPE_STRING;
 	op->ob.size = size;
 
-	memcpy(op->value, str, size);
+	asys_memory_copy(op->value, str, size);
 
 	op->value[size] = '\0';
 
@@ -26,11 +27,11 @@ struct py_object* py_string_new_size(const char* str, unsigned size) {
 }
 
 struct py_object* py_string_new(const char* str) {
-	return py_string_new_size(str, (unsigned) strlen(str));
+	return py_string_new_size(str, (unsigned) asys_string_length(str));
 }
 
 void py_string_dealloc(struct py_object* op) {
-	free(op);
+	asys_memory_free(op);
 }
 
 const char* py_string_get(const struct py_object* op) {
@@ -51,14 +52,15 @@ struct py_object* py_string_cat(struct py_object* a, struct py_object* b) {
 	if(sz_b == 0) return py_object_incref(a);
 
 	/* TODO: Not using _new_size? */
-	if(!(op = malloc(sizeof(struct py_string) + size))) return 0;
+	op = asys_memory_allocate(sizeof(struct py_string) + size);
+	if(!op) return 0;
 
 	py_object_newref(op);
 	op->ob.type = PY_TYPE_STRING;
 	op->ob.size = size;
 
-	memcpy(op->value, py_string_get(a), sz_a);
-	memcpy(op->value + sz_a, py_string_get(b), sz_b);
+	asys_memory_copy(op->value, py_string_get(a), sz_a);
+	asys_memory_copy(op->value + sz_a, py_string_get(b), sz_b);
 
 	op->value[size] = '\0';
 
@@ -89,7 +91,7 @@ int py_string_cmp(const struct py_object* a, const struct py_object* b) {
 	unsigned sz_b = py_varobject_size(b);
 	unsigned min_len = (sz_a < sz_b) ? sz_a : sz_b;
 
-	int cmp = memcmp(py_string_get(a), py_string_get(b), min_len);
+	int cmp = asys_memory_compare(py_string_get(a), py_string_get(b), min_len);
 	if(cmp != 0) return cmp;
 
 	if(sz_a < sz_b) return -1;

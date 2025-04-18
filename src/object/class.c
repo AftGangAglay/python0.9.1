@@ -5,11 +5,11 @@
 
 /* Class object implementation */
 
-#include <python/std.h>
-
 #include <python/object.h>
 #include <python/object/class.h>
 #include <python/object/dict.h>
+
+#include <asys/memory.h>
 
 struct py_object* py_class_new(struct py_object* methods) {
 	struct py_class* op;
@@ -26,7 +26,7 @@ struct py_object* py_class_new(struct py_object* methods) {
 void py_class_dealloc(struct py_object* op) {
 	py_object_decref(((struct py_class*) op)->attr);
 
-	free(op);
+	asys_memory_free(op);
 }
 
 struct py_object* py_class_get_attr(struct py_object* op, const char* name) {
@@ -64,7 +64,7 @@ void py_class_member_dealloc(struct py_object* op) {
 	py_object_decref(cm->class);
 	py_object_decref(cm->attr);
 
-	free(op);
+	asys_memory_free(op);
 }
 
 struct py_object* py_class_member_get_attr(
@@ -119,5 +119,5 @@ void py_class_method_dealloc(struct py_object* op) {
 	py_object_decref(cm->func);
 	py_object_decref(cm->self);
 
-	free(op);
+	asys_memory_free(op);
 }

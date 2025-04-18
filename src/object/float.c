@@ -5,9 +5,9 @@
 
 /* Float object implementation */
 
-#include <python/std.h>
-
 #include <python/object/float.h>
+
+#include <asys/memory.h>
 
 struct py_object* py_float_new(double value) {
 	struct py_float* op;
@@ -20,7 +20,7 @@ struct py_object* py_float_new(double value) {
 }
 
 void py_float_dealloc(struct py_object* op) {
-	free(op);
+	asys_memory_free(op);
 }
 
 double py_float_get(const struct py_object* op) {

@@ -5,7 +5,6 @@
 
 /* Module object implementation */
 
-#include <python/std.h>
 #include <python/import.h>
 #include <python/state.h>
 
@@ -14,6 +13,9 @@
 #include <python/object/string.h>
 #include <python/object/module.h>
 #include <python/object/method.h>
+
+#include <asys/memory.h>
+#include <asys/string.h>
 
 struct py_object* py_module_new(const char* name) {
 	struct py_module* m;
@@ -49,7 +51,7 @@ struct py_object* py_module_new_methods(
 	d = ((struct py_module*) m)->attr;
 
 	for(; methods->name; methods++) {
-		v = py_method_new(methods->method, (struct py_object*) NULL);
+		v = py_method_new(methods->method, 0);
 
 		if(!v || py_dict_insert(d, methods->name, v) == -1) return 0;
 
@@ -67,15 +69,15 @@ void py_module_dealloc(struct py_object* op) {
 	py_object_decref(m->name);
 	py_object_decref(m->attr);
 
-	free(op);
+	asys_memory_free(op);
 }
 
 struct py_object* py_module_get_attr(struct py_object* op, const char* name) {
 	struct py_module* m = (void*) op;
 
 	/* TODO: Remove. */
-	if(!strcmp(name, "__dict__")) return py_object_incref(m->attr);
-	if(!strcmp(name, "__name__")) return py_object_incref(m->name);
+	if(asys_string_equal(name, "__dict__")) return py_object_incref(m->attr);
+	if(asys_string_equal(name, "__name__")) return py_object_incref(m->name);
 
 	return py_object_incref(py_dict_lookup(m->attr, name));
 }

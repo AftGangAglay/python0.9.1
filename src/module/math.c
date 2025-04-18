@@ -80,7 +80,7 @@ static struct py_object* py_math2_impl(
 			struct py_object* self, struct py_object* args) { \
 		(void) env; \
 		(void) self; \
-		return py_math1_impl(args, func); \
+		return py_math1_impl(args, (func)); \
 	}
 
 #define PY_MATH2(func) \
@@ -89,7 +89,7 @@ static struct py_object* py_math2_impl(
 			struct py_object* self, struct py_object* args) { \
 		(void) env; \
 		(void) self; \
-		return py_math2_impl(args, func); \
+		return py_math2_impl(args, (func)); \
 	}
 
 PY_MATH1(acos)

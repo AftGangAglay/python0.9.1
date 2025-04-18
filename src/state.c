@@ -4,9 +4,11 @@
  */
 
 #include <python/state.h>
-#include <python/std.h>
 #include <python/types.h>
 #include <python/object/dict.h>
+
+#include <asys/string.h>
+#include <asys/memory.h>
 
 static enum py_result py_path_new(const char* path, char*** out) {
 	enum py_result res = PY_RESULT_OK;
@@ -14,33 +16,33 @@ static enum py_result py_path_new(const char* path, char*** out) {
 	const char* curr = path;
 	unsigned n = 1;
 
-	if(!(*out = calloc(1, sizeof(char*)))) return PY_RESULT_OOM;
+	*out = asys_memory_allocate_zero(1, sizeof(char*));
+	if(!*out) return PY_RESULT_OOM;
 
 	while(1) {
 		unsigned len;
 		char** s;
-		void* tmp;
 
-		const char* pos = strchr(curr, ':');
-		if(!pos) pos = strchr(curr, '\0');
+		const char* pos = asys_string_find_const(curr, ':');
+		if(!pos) pos = asys_string_find_const(curr, '\0');
 
 		len = (unsigned) (pos - path);
 		s = &(*out)[n - 1];
 
-		if(!(*s = malloc(len + 1))) {
+		if(!(*s = asys_memory_allocate(len + 1))) {
 			res = PY_RESULT_OOM;
 			goto cleanup;
 		}
 
-		strncpy(*s, curr, len);
+		asys_memory_copy(*s, curr, len);
 		(*s)[len] = 0;
 
-		tmp = realloc(*out, ++n * sizeof(char*));
-		if(!tmp) {
+		*out = asys_memory_reallocate_safe(*out, ++n * sizeof(char*));
+		if(!*out) {
 			res = PY_RESULT_OOM;
 			goto cleanup;
 		}
-		*out = tmp;
+
 		(*out)[n - 1] = 0;
 
 		if(!*pos) break;
@@ -53,10 +55,10 @@ static enum py_result py_path_new(const char* path, char*** out) {
 		unsigned i;
 
 		for(i = 0; i < n; ++i) {
-			if(*out[i]) free(*out[i]);
+			if(*out[i]) asys_memory_free(*out[i]);
 		}
 
-		free(*out);
+		asys_memory_free(*out);
 
 		return res;
 	}

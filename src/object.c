@@ -5,10 +5,10 @@
 
 /* Generic object operations; and implementation of PY_NONE (py_none_object) */
 
-#include <python/std.h>
 #include <python/errors.h>
 
 #include <asys/log.h>
+#include <asys/memory.h>
 
 /*
  * Object allocation routines used by the NEWOBJ macro.
@@ -16,8 +16,8 @@
  * Do not call them otherwise, they do not initialize the object!
  */
 void* py_object_new(enum py_type tp) {
-	struct py_object* op = malloc(py_types[tp].size);
-	if(op == NULL) return py_error_set_nomem();
+	struct py_object* op = asys_memory_allocate(py_types[tp].size);
+	if(!op) return 0;
 
 	py_object_newref(op);
 	op->type = tp;
@@ -27,11 +27,11 @@ void* py_object_new(enum py_type tp) {
 
 int py_object_cmp(const struct py_object* v, const struct py_object* w) {
 	if(v == w) return 0;
-	if(v == NULL) return -1;
-	if(w == NULL) return 1;
+	if(!v) return -1;
+	if(!w) return 1;
 
 	if(v->type != w->type) return (v < w) ? -1 : 1;
-	if(py_types[v->type].cmp == NULL) return (v < w) ? -1 : 1;
+	if(!py_types[v->type].cmp) return (v < w) ? -1 : 1;
 
 	return py_types[v->type].cmp(v, w);
 }

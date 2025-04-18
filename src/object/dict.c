@@ -19,10 +19,11 @@
 /* TODO: Fix overly fatal EH in here. */
 /* TODO: Do dict keys need to be string *objects*? */
 
-#include <python/std.h>
-
 #include <python/object/string.h>
 #include <python/object/dict.h>
+
+#include <asys/memory.h>
+#include <asys/string.h>
 
 /*
  * Table of primes suitable as keys, in ascending order.
@@ -65,9 +66,12 @@ struct py_object* py_dict_new(void) {
 
 	dp->size = primes[0];
 
-	if(!(dp->table = calloc(dp->size, sizeof(struct py_dictentry)))) {
+	dp->table = asys_memory_allocate_zero(
+			dp->size, sizeof(struct py_dictentry));
+
+	if(!dp->table) {
 		/* Free instead of decref to avoid trying to free table in dealloc. */
-		free(dp);
+		asys_memory_free(dp);
 		return 0;
 	}
 
@@ -116,7 +120,7 @@ static struct py_dictentry* py_dict_look(struct py_dict* dp, const char* key) {
 
 		str = py_string_get(ep->key);
 
-		if(!strcmp(str, key)) return ep;
+		if(asys_string_equal(str, key)) return ep;
 
 		i = (i + incr) % dp->size;
 	}
@@ -139,7 +143,7 @@ static void py_dict_table_insert(
 		py_object_decref(key);
 	}
 	else {
-		if(ep->key == NULL) dp->fill++;
+		if(!ep->key) dp->fill++;
 		else py_object_decref(ep->key);
 
 		ep->key = key;
@@ -169,7 +173,8 @@ static int py_dict_resize(struct py_dict* dp) {
 		}
 	}
 
-	if(!(newtable = calloc(newsize, sizeof(struct py_dictentry)))) return -1;
+	newtable = asys_memory_allocate_zero(newsize, sizeof(struct py_dictentry));
+	if(!newtable) return -1;
 
 	dp->size = newsize;
 	dp->table = newtable;
@@ -181,7 +186,8 @@ static int py_dict_resize(struct py_dict* dp) {
 		else if(ep->key) py_object_decref(ep->key);
 	}
 
-	free(oldtable);
+	asys_memory_free(oldtable);
+
 	return 0;
 }
 
@@ -195,11 +201,7 @@ static int py_dict_insert_impl(
 	struct py_dict* dp;
 	struct py_object* keyobj;
 
-	/* TODO: Non-typechecked builds. */
-	if(op->type != PY_TYPE_DICT) return -1;
-
 	dp = (struct py_dict*) op;
-	if(key->type != PY_TYPE_STRING) return -1;
 
 	keyobj = key;
 
@@ -292,9 +294,9 @@ void py_dict_dealloc(struct py_object* op) {
 		if(ep->value) py_object_decref(ep->value);
 	}
 
-	if(dp->table) free(dp->table);
+	if(dp->table) asys_memory_free(dp->table);
 
-	free(op);
+	asys_memory_free(op);
 }
 
 struct py_object* py_dict_lookup_object(

@@ -7,9 +7,7 @@
 
 #include <python/state.h>
 #include <python/env.h>
-#include <python/std.h>
 #include <python/node.h>
-#include <python/token.h>
 #include <python/graminit.h>
 #include <python/import.h>
 #include <python/result.h>
@@ -22,6 +20,9 @@
 #include <python/object/dict.h>
 #include <python/object/list.h>
 #include <python/object/string.h>
+
+#include <asys/string.h>
+#include <asys/memory.h>
 
 /* TODO: This system needs some rework to clean up import control flow. */
 
@@ -60,16 +61,16 @@ static struct py_object* py_get_module(
 	for(i = 0; env->py->path[i]; ++i) {
 		char* el = env->py->path[i];
 
-		unsigned namlen = (unsigned) strlen(name);
-		unsigned pathlen = (unsigned) strlen(el);
+		unsigned namlen = (unsigned) asys_string_length(name);
+		unsigned pathlen = (unsigned) asys_string_length(el);
 		unsigned sufflen = sizeof(suffix) - 1;
 
 		if(pathlen + namlen + sufflen >= sizeof(buf)) continue;
 
-		memcpy(buf, el, pathlen);
-		memcpy(buf + pathlen, name, namlen);
+		asys_memory_copy(buf, el, pathlen);
+		asys_memory_copy(buf + pathlen, name, namlen);
 		/* Adds appropriate null terminator. */
-		memcpy(buf + pathlen + namlen, suffix, sizeof(suffix));
+		asys_memory_copy(buf + pathlen + namlen, suffix, sizeof(suffix));
 
 		/* TODO: Better EH. */
 		if(py_open_r(env, buf, &fp)) {
@@ -137,7 +138,7 @@ void py_import_done(struct py_env* env) {
 			const char* k = py_dict_get_key(env->modules, i);
 
 			/*
-			 * TODO: Are all these checks neccesary when iterating through a
+			 * TODO: Are all these checks necessary when iterating through a
 			 * 		 Dict?
 			 */
 			if(k) {

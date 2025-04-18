@@ -5,9 +5,9 @@
 
 /* List object implementation */
 
-#include <python/std.h>
-
 #include <python/object/list.h>
+
+#include <asys/memory.h>
 
 struct py_object* py_list_new(unsigned size) {
 	struct py_list* op;
@@ -15,8 +15,9 @@ struct py_object* py_list_new(unsigned size) {
 	if(!(op = py_object_new(PY_TYPE_LIST))) return 0;
 	op->ob.size = size;
 
-	if(!(op->item = calloc(size, sizeof(struct py_object*)))) {
-		free(op);
+	op->item = asys_memory_allocate_zero(size, sizeof(struct py_object*));
+	if(!op->item) {
+		asys_memory_free(op);
 		return 0;
 	}
 
@@ -43,12 +44,14 @@ static int py_list_insert_impl(
 	struct py_object** items;
 
 	/* This isn't leaky -- we want to preserve original in OOM case here. */
-	items = realloc(self->item, (self->ob.size + 1) * sizeof(struct py_object*));
+	items = asys_memory_reallocate(
+			self->item, (self->ob.size + 1) * sizeof(struct py_object*));
+
 	if(!items) return -1;
 
 	if(where > self->ob.size) where = self->ob.size;
 
-	memmove(
+	asys_memory_move(
 			&items[where + 1], &items[where],
 			(self->ob.size - where) * sizeof(struct py_object*));
 
@@ -77,9 +80,8 @@ void py_list_dealloc(struct py_object* op) {
 
 	for(i = 0; i < lp->ob.size; i++) py_object_decref(lp->item[i]);
 
-	free(lp->item);
-
-	free(op);
+	asys_memory_free(lp->item);
+	asys_memory_free(op);
 }
 
 int py_list_cmp(const struct py_object* v, const struct py_object* w) {
