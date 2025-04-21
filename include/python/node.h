@@ -35,17 +35,12 @@ struct py_object* py_tree_eval(
 
 /* Assert that the type of node is what we expect */
 /* TODO: Handle this better. */
-#ifndef _DEBUG
-# define PY_REQ(n, type) do { /* pass */ } while(0)
-#else
+#ifndef NDEBUG
 # define PY_REQ(n, t) \
-    do { \
-        if((n)->type != (t)) { \
-            fprintf( \
-                stderr, "FATAL: node type %d, required %d\n", (n)->type, t); \
-            abort(); \
-        } \
-    } while(0)
+		if((n)->type != (t)) py_fatal("FATAL: unexpected node type")
+
+#else
+# define PY_REQ(n, type) do { /* pass */ } while(0)
 #endif
 
 #endif

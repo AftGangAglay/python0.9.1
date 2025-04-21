@@ -10,10 +10,12 @@
 #include <python/token.h>
 #include <python/errors.h>
 #include <python/node.h>
-#include <python/std.h>
 #include <python/grammar.h>
 #include <python/metagrammar.h>
 #include <python/pgen.h>
+#include <python/std.h>
+
+#include <asys/memory.h>
 
 /* PART ONE -- CONSTRUCT NFA -- Cf. Algorithm 3.2 from [Aho&Ullman 77] */
 
@@ -47,14 +49,13 @@ struct py_nfa_grammar {
 static unsigned py_nfa_add_state(struct py_nfa* nf) {
 	struct py_nfa_state* st;
 
-	void* newptr = realloc(
+	nf->states = asys_memory_reallocate_safe(
 			nf->states, (nf->count + 1) * sizeof(struct py_nfa_state));
-	/* TODO: Better EH. */
-	if(!newptr) {
-		free(nf->states);
-		py_fatal("out of mem");
+
+	if(!nf->states) {
+		/* TODO: Better EH. */
+		py_fatal("oom");
 	}
-	nf->states = newptr;
 
 	st = &nf->states[nf->count++];
 	st->count = 0;
@@ -68,17 +69,16 @@ static void py_nfa_add_arc(
 
 	struct py_nfa_state* st;
 	struct py_nfa_arc* ar;
-	void* newptr;
 
 	st = &nf->states[from];
 
-	newptr = realloc(st->arcs, (st->count + 1) * sizeof(struct py_nfa_arc));
-	/* TODO: Better EH. */
-	if(!newptr) {
-		free(newptr);
-		py_fatal("out of mem");
+	st->arcs = asys_memory_reallocate_safe(
+			st->arcs, (st->count + 1) * sizeof(struct py_nfa_arc));
+
+	if(!st->arcs) {
+		/* TODO: Better EH. */
+		py_fatal("oom");
 	}
-	st->arcs = newptr;
 
 	ar = &st->arcs[st->count++];
 	ar->label = lbl;
@@ -89,9 +89,9 @@ static struct py_nfa* py_nfa_new(char* name) {
 	struct py_nfa* nf;
 	static int type = PY_NONTERMINAL; /* All types will be disjunct */
 
-	nf = malloc(sizeof(struct py_nfa));
+	nf = asys_memory_allocate(sizeof(struct py_nfa));
 	/* TODO: Better EH. */
-	if(!nf) py_fatal("no mem for new nfa");
+	if(!nf) py_fatal("oom");
 
 	nf->type = type++;
 	nf->name = name; /* TODO: strdup(name) ??? */
@@ -105,9 +105,9 @@ static struct py_nfa* py_nfa_new(char* name) {
 static struct py_nfa_grammar* py_nfa_grammar_new(void) {
 	struct py_nfa_grammar* gr;
 
-	gr = malloc(sizeof(struct py_nfa_grammar));
+	gr = asys_memory_allocate(sizeof(struct py_nfa_grammar));
 	/* TODO: Better EH. */
-	if(!gr) py_fatal("no mem for new nfa grammar");
+	if(!gr) py_fatal("oom");
 
 	gr->count = 0;
 	gr->nfas = 0;
@@ -120,17 +120,16 @@ static struct py_nfa_grammar* py_nfa_grammar_new(void) {
 
 static struct py_nfa* addnfa(struct py_nfa_grammar* gr, char* name) {
 	struct py_nfa* nf;
-	void* newptr;
 
 	nf = py_nfa_new(name);
 
-	newptr = realloc(gr->nfas, (gr->count + 1) * sizeof(struct py_nfa*));
-	/* TODO: Better EH. */
-	if(!newptr) {
-		free(gr->nfas);
-		py_fatal("out of mem");
+	gr->nfas = asys_memory_reallocate_safe(
+			gr->nfas, (gr->count + 1) * sizeof(struct py_nfa*));
+
+	if(!gr->nfas) {
+		/* TODO: Better EH. */
+		py_fatal("oom");
 	}
-	gr->nfas = newptr;
 
 	gr->nfas[gr->count++] = nf;
 	py_labellist_add(&gr->labellist, PY_NAME, nf->name);
@@ -140,30 +139,28 @@ static struct py_nfa* addnfa(struct py_nfa_grammar* gr, char* name) {
 
 #ifndef NDEBUG
 /* TODO: Better EH. */
-#define PY_REQUIRE_N(i, count) \
-		do { \
-			if(i < count) { \
-				fprintf(stderr, "py_node_compile_meta: less than %d children\n", count); \
-				abort(); \
-			} \
-		} while(0)
+# define PY_REQUIRE_N(i, count) \
+		if(i < count) py_fatal("py_node_compile_meta: less than required")
 #else
-#define PY_REQUIRE_N(i, count) (void) i, (void) count
+# define PY_REQUIRE_N(i, count) do { (void) i; (void) count; } while(0)
 #endif
 
-void py_node_compile_rule(struct py_nfa_grammar* gr, struct py_node* n);
+void py_node_compile_rule(struct py_nfa_grammar*, struct py_node*);
 void py_node_compile_rhs(
-		struct py_labellist* ll, struct py_nfa* nf, struct py_node* n, unsigned* pa,
-		unsigned* pb);
+		struct py_labellist*, struct py_nfa*, struct py_node*, unsigned*,
+		unsigned*);
+
 void py_node_compile_alt(
-		struct py_labellist* ll, struct py_nfa* nf, struct py_node* n, unsigned* pa,
-		unsigned* pb);
+		struct py_labellist*, struct py_nfa*, struct py_node*, unsigned*,
+		unsigned*);
+
 void py_node_compile_item(
-		struct py_labellist* ll, struct py_nfa* nf, struct py_node* n, unsigned* pa,
-		unsigned* pb);
+		struct py_labellist*, struct py_nfa*, struct py_node*, unsigned*,
+		unsigned*);
+
 void compile_atom(
-		struct py_labellist* ll, struct py_nfa* nf, struct py_node* n, unsigned* pa,
-		unsigned* pb);
+		struct py_labellist*, struct py_nfa*, struct py_node*, unsigned*,
+		unsigned*);
 
 /* TODO: Signedness. */
 static struct py_nfa_grammar* py_node_compile_meta(struct py_node* n) {
@@ -431,7 +428,7 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 				if(!newptr) {
 					/* TODO: Better EH. */
 					free(newptr);
-					py_fatal("out of mem");
+					py_fatal("oom");
 				}
 				current->arcs = newptr;
 
@@ -463,9 +460,9 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 
 			newptr = realloc(states, (nstates + 1) * sizeof(struct py_ss_state));
 			if(!newptr) {
-				/* TODO: Bestter EH. */
+				/* TODO: Better EH. */
 				free(states);
-				py_fatal("out of mem");
+				py_fatal("oom");
 			}
 			states = newptr;
 

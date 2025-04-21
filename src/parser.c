@@ -7,14 +7,15 @@
 
 /* For a description, see the comments at end of this file */
 
-/* TODO: error recovery */
-
-#include <python/std.h>
 #include <python/token.h>
 #include <python/grammar.h>
 #include <python/node.h>
 #include <python/parser.h>
 #include <python/result.h>
+#include <python/errors.h>
+
+#include <asys/memory.h>
+#include <asys/string.h>
 
 struct py_dfa* py_grammar_find_dfa(struct py_grammar* g, unsigned type) {
 	unsigned i;
@@ -25,8 +26,8 @@ struct py_dfa* py_grammar_find_dfa(struct py_grammar* g, unsigned type) {
 	}
 
 	/* TODO: Better EH. */
-	abort();
-	/* NOTREACHED */
+	py_fatal("Failed to find DFA in grammar");
+	return 0;
 }
 
 /* STACK DATA TYPE */
@@ -42,8 +43,8 @@ static int py_stack_push(
 
 	struct py_stackentry* top;
 	if(s->top == s->base) {
-		fprintf(stderr, "py_stack_push: parser stack overflow\n");
-		return -1;
+		/* TODO: Better EH. */
+		py_fatal("py_stack_push: parser stack overflow");
 	}
 
 	top = --s->top;
@@ -57,13 +58,13 @@ static int py_stack_push(
 #ifndef NDEBUG
 static void py_stack_pop(struct py_stack* s) {
 	if(py_stack_is_empty(s)) {
-		fprintf(stderr, "py_stack_pop: parser stack underflow -- FATAL\n");
-		abort();
+		/* TODO: Better EH. */
+		py_fatal("py_stack_pop: parser stack underflow -- FATAL");
 	}
 	s->top++;
 }
 #else /* !DEBUG */
-#define py_stack_pop(s) (s)->top++
+# define py_stack_pop(s) (s)->top++
 #endif
 
 
@@ -72,21 +73,23 @@ static void py_stack_pop(struct py_stack* s) {
 struct py_parser* py_parser_new(struct py_grammar* g, int start) {
 	struct py_parser* ps;
 
-	if(!g->accel) {
-		py_grammar_add_accels(g);
-	}
-	ps = malloc(sizeof(struct py_parser));
-	if(ps == NULL) {
-		return NULL;
-	}
+	if(!g->accel) py_grammar_add_accels(g);
+
+	ps = asys_memory_allocate(sizeof(struct py_parser));
+	if(!ps) return 0;
+
 	ps->grammar = g;
-	ps->tree = py_tree_new(start);
-	if(ps->tree == NULL) {
-		free(ps);
-		return NULL;
+
+	if(!(ps->tree = py_tree_new(start))) {
+		asys_memory_free(ps);
+		return 0;
 	}
+
 	py_stack_reset(&ps->stack);
+
+	/* TODO: Better EH. */
 	(void) py_stack_push(&ps->stack, py_grammar_find_dfa(g, start), ps->tree);
+
 	return ps;
 }
 
@@ -96,7 +99,7 @@ void py_parser_delete(struct py_parser* ps) {
 	 * calling py_parser_delete!
 	 */
 	py_tree_delete(ps->tree);
-	free(ps);
+	asys_memory_free(ps);
 }
 
 
@@ -105,11 +108,14 @@ void py_parser_delete(struct py_parser* ps) {
 static int py_parser_shift(
 		struct py_stack* s, int type, char* str, int newstate, unsigned lineno) {
 
-	assert(!py_stack_is_empty(s));
+	if(py_stack_is_empty(s)) {
+		/* TODO: Better EH. */
+		py_fatal("py_parser_shift: stack is empty");
+	}
 
-	if(py_tree_add(s->top->parent, type, str, lineno) == NULL) {
-		fprintf(stderr, "py_parser_shift: no mem in py_tree_add\n");
-		return -1;
+	if(!py_tree_add(s->top->parent, type, str, lineno)) {
+		/* TODO: Better EH. */
+		py_fatal("py_parser_shift: no mem in py_tree_add");
 	}
 
 	s->top->state = newstate;
@@ -121,15 +127,16 @@ static int py_parser_push(
 		struct py_stack* s, int type, struct py_dfa* d, int newstate,
 		unsigned lineno) {
 
-	struct py_node* n;
+	struct py_node* n = s->top->parent;
 
-	n = s->top->parent;
-	/* TODO: Better EH. */
-	assert(!py_stack_is_empty(s));
+	if(py_stack_is_empty(s)) {
+		/* TODO: Better EH. */
+		py_fatal("py_parser_push: stack is empty");
+	}
 
-	if(!py_tree_add(n, type, NULL, lineno)) {
-		fprintf(stderr, "py_parser_push: no mem in py_tree_add\n");
-		return -1;
+	if(!py_tree_add(n, type, 0, lineno)) {
+		/* TODO: Better EH. */
+		py_fatal("py_parser_push: no mem in py_tree_add");
 	}
 
 	s->top->state = newstate;
@@ -149,7 +156,10 @@ static unsigned py_parser_classify(
 
 	if(type == PY_NAME) {
 		for(i = 0; i < n; ++i, ++l) {
-			if(l->type == PY_NAME && l->str && !strcmp(l->str, str)) {
+			if(l->type == PY_NAME &&
+					l->str &&
+					asys_string_equal(l->str, str)) {
+
 				return i;
 			}
 		}
@@ -157,7 +167,7 @@ static unsigned py_parser_classify(
 
 	l = g->labels.label;
 	for(i = 0; i < n; ++i, ++l) {
-		if(l->type == type && l->str == NULL) return i;
+		if(l->type == type && !l->str) return i;
 	}
 
 	return (unsigned) -1;
