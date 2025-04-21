@@ -449,6 +449,7 @@ static void py_compile_term(struct py_compiler* c, struct py_node* n) {
 			}
 
 			default: {
+				op = 0;
 				/* TODO: Better EH. */
 				py_fatal("py_compile_term: term operator not *, / or %");
 			}
@@ -483,6 +484,7 @@ static void py_compile_expression(struct py_compiler* c, struct py_node* n) {
 			}
 
 			default: {
+				op = 0;
 				/* TODO: Better EH. */
 				py_fatal("py_compile_expression: expr operator not + or -");
 			}

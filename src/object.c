@@ -106,7 +106,9 @@ void* py_object_decref(void* p) {
 #endif
 
 	if(--op->refcount <= 0) {
+#ifdef PY_REF_DEBUG
 		py_object_total--;
+#endif
 
 		py_object_unref(op);
 		py_types[op->type].dealloc(op);
