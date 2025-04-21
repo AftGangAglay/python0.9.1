@@ -6,7 +6,6 @@
 /* Math module -- standard C math library functions */
 
 #include <python/state.h>
-#include <python/std.h>
 #include <python/errors.h>
 
 #include <python/object/module.h>
@@ -14,12 +13,14 @@
 #include <python/object/int.h>
 #include <python/object/tuple.h>
 
+#include <asys/math.h>
+
 typedef double (*py_math1_t)(double);
 typedef double (*py_math2_t)(double, double);
 typedef py_value_t (*py_math_val2_t)(py_value_t, py_value_t);
 
 static int py_arg_double(struct py_object* args, double* px) {
-	if(args == NULL) return py_error_set_badarg();
+	if(!args) return py_error_set_badarg();
 
 	if(args->type == PY_TYPE_FLOAT) {
 		*px = py_float_get(args);
@@ -41,7 +42,7 @@ static int py_arg_double_double(
 	}
 
 	return py_arg_double(py_tuple_get(args, 0), px) &&
-		   py_arg_double(py_tuple_get(args, 1), py);
+			py_arg_double(py_tuple_get(args, 1), py);
 }
 
 static struct py_object* py_math1_impl(
@@ -49,14 +50,13 @@ static struct py_object* py_math1_impl(
 
 	double x;
 
-	if(!py_arg_double(args, &x)) return NULL;
+	if(!py_arg_double(args, &x)) return 0;
 
-	/* TODO: Better EH. */
-	errno = 0;
+	/* TODO: fp exception state. */
 	x = (*func)(x);
 
-	if(errno != 0) return NULL;
-	else return py_float_new(x);
+	/* TODO: OOM. */
+	return py_float_new(x);
 }
 
 static struct py_object* py_math2_impl(
@@ -64,33 +64,36 @@ static struct py_object* py_math2_impl(
 
 	double x, y;
 
-	if(!py_arg_double_double(args, &x, &y)) return NULL;
+	if(!py_arg_double_double(args, &x, &y)) return 0;
 
-	/* TODO: Better EH. */
-	errno = 0;
+	/* TODO: fp exception state. */
 	x = (*func)(x, y);
 
-	if(errno != 0) return NULL;
-	else return py_float_new(x);
+	/* TODO: OOM. */
+	return py_float_new(x);
 }
 
 #define PY_MATH1(func) \
-	static struct py_object* py_math_##func( \
-			struct py_env* env, \
-			struct py_object* self, struct py_object* args) { \
-		(void) env; \
-		(void) self; \
-		return py_math1_impl(args, (func)); \
-	}
+		static struct py_object* py_math_##func( \
+				struct py_env* env, \
+				struct py_object* self, struct py_object* args) { \
+			\
+			(void) env; \
+			(void) self; \
+			\
+			return py_math1_impl(args, (asys_math_##func)); \
+		}
 
 #define PY_MATH2(func) \
-	static struct py_object* py_math_##func( \
-			struct py_env* env, \
-			struct py_object* self, struct py_object* args) { \
-		(void) env; \
-		(void) self; \
-		return py_math2_impl(args, (func)); \
-	}
+		static struct py_object* py_math_##func( \
+				struct py_env* env, \
+				struct py_object* self, struct py_object* args) { \
+			\
+			(void) env; \
+			(void) self; \
+			\
+			return py_math2_impl(args, (asys_math_##func)); \
+		}
 
 PY_MATH1(acos)
 PY_MATH1(asin)
@@ -203,7 +206,7 @@ static struct py_object* py_math_randf(
 		return 0;
 	}
 
-	return py_float_new((double) rand() / (double) RAND_MAX);
+	return py_float_new(asys_random());
 }
 
 static struct py_object* py_math_notb(
@@ -249,7 +252,7 @@ enum py_result py_math_init(struct py_env* env) {
 			py_(shl),
 			py_(shr),
 			py_(randf),
-			{ NULL, NULL } /* sentinel */
+			{ 0, 0 } /* sentinel */
 	};
 #undef py_
 

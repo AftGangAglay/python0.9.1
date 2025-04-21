@@ -7,188 +7,203 @@
 
 #include <python/token.h>
 #include <python/grammar.h>
-#include <python/std.h>
 #include <python/errors.h>
 
+#include <asys/memory.h>
+#include <asys/string.h>
+
 struct py_grammar* py_grammar_new(int start) {
-	struct py_grammar* g;
+	struct py_grammar* grammar;
 
-	g = malloc(sizeof(struct py_grammar));
+	grammar = asys_memory_allocate_zero(1, sizeof(struct py_grammar));
 	/* TODO: Better EH. */
-	if(g == NULL) py_fatal("no mem for new grammar");
+	if(!grammar) py_fatal("oom");
 
-	g->count = 0;
-	g->dfas = NULL;
-	g->start = start;
-	g->labels.count = 0;
-	g->labels.label = NULL;
+	grammar->start = start;
 
-	return g;
+	return grammar;
 }
 
-struct py_dfa* py_grammar_add_dfa(struct py_grammar* g, int type, char* name) {
-	struct py_dfa* d;
+struct py_dfa* py_grammar_add_dfa(
+		struct py_grammar* grammar, int type, char* name) {
 
-	void* newptr = realloc(g->dfas, (g->count + 1) * sizeof(struct py_dfa));
-	if(newptr == NULL) {
-		free(g->dfas);
+	struct py_dfa* dfa;
+
+	grammar->dfas = asys_memory_reallocate_safe(
+			grammar->dfas, (grammar->count + 1) * sizeof(struct py_dfa));
+
+	if(!grammar->dfas) {
 		/* TODO: Better EH. */
-		py_fatal("no mem to resize dfa in py_grammar_add_dfa");
+		py_fatal("oom");
 	}
-	g->dfas = newptr;
 
-	d = &g->dfas[g->count++];
-	d->type = type;
-	d->name = name;
-	d->count = 0;
-	d->states = NULL;
-	d->initial = -1;
-	d->first = NULL;
+	dfa = &grammar->dfas[grammar->count++];
+	dfa->type = type;
+	dfa->name = name;
+	dfa->count = 0;
+	dfa->states = 0;
+	dfa->initial = -1;
+	dfa->first = 0;
 
-	return d; /* Only use while fresh! */
+	return dfa; /* Only use while fresh! */
 }
 
-unsigned py_dfa_add_state(struct py_dfa* d) {
-	struct py_state* s;
-	void* newptr;
+unsigned py_dfa_add_state(struct py_dfa* dfa) {
+	struct py_state* state;
 
-	newptr = realloc(d->states, (d->count + 1) * sizeof(struct py_state));
-	if(!newptr) {
-		free(d->states);
-		py_fatal("no mem to resize state in py_dfa_add_state");
+	dfa->states = asys_memory_reallocate_safe(
+			dfa->states, (dfa->count + 1) * sizeof(struct py_state));
+
+	if(!dfa->states) {
+		/* TODO: Better EH. */
+		py_fatal("oom");
 	}
-	d->states = newptr;
 
-	s = &d->states[d->count++];
-	s->count = 0;
-	s->arcs = NULL;
-	s->accel = NULL;
+	state = &dfa->states[dfa->count++];
+	state->count = 0;
+	state->arcs = 0;
+	state->accel = 0;
 
-	return (unsigned) (s - d->states);
+	return (unsigned) (state - dfa->states);
 }
 
 void py_dfa_add_arc(
-		struct py_dfa* d, unsigned from, unsigned to, unsigned lbl) {
+		struct py_dfa* dfa, unsigned from, unsigned to, unsigned lbl) {
 
-	struct py_state* s;
+	struct py_state* state;
 	struct py_arc* a;
-	void* newptr;
 
 	/* TODO: Better EH. */
-	assert(from < d->count);
-	assert(to < d->count);
+	if(from >= dfa->count) py_fatal("add_arc: error");
+	if(to >= dfa->count) py_fatal("add_arc: error");
 
-	s = &d->states[from];
+	state = &dfa->states[from];
 
-	newptr = realloc(s->arcs, (s->count + 1) * sizeof(struct py_arc));
-	if(!newptr) {
-		py_fatal("no mem to resize arc list in py_dfa_add_arc");
+	state->arcs = asys_memory_reallocate_safe(
+			state->arcs, (state->count + 1) * sizeof(struct py_arc));
+
+	if(!state->arcs) {
+		/* TODO: Better EH. */
+		py_fatal("oom");
 	}
-	s->arcs = newptr;
 
-	a = &s->arcs[s->count++];
+	a = &state->arcs[state->count++];
 	a->label = (unsigned short) lbl;
 	a->arrow = (unsigned short) to;
 }
 
-unsigned py_labellist_add(struct py_labellist* ll, unsigned type, char* str) {
-	unsigned i;
-	struct py_label* lb;
-	void* newptr;
+unsigned py_labellist_add(
+		struct py_labellist* label_list, unsigned type, char* str) {
 
-	for(i = 0; i < ll->count; i++) {
-		if(ll->label[i].type == type && strcmp(ll->label[i].str, str) == 0) {
+	unsigned i;
+	struct py_label* label;
+
+	for(i = 0; i < label_list->count; i++) {
+		if(label_list->label[i].type == type &&
+				asys_string_equal(label_list->label[i].str, str)) {
+
 			return i;
 		}
 	}
 
-	newptr = realloc(ll->label, (ll->count + 1) * sizeof(struct py_label));
-	if(newptr == NULL) {
-		free(ll->label);
+	label_list->label = asys_memory_reallocate_safe(
+			label_list->label,
+			(label_list->count + 1) * sizeof(struct py_label));
+
+	if(!label_list->label) {
 		/* TODO: Better EH. */
-		py_fatal("no mem to resize struct py_labellist in py_labellist_add");
+		py_fatal("oom");
 	}
-	ll->label = newptr;
 
-	lb = &ll->label[ll->count++];
-	lb->type = type;
-	lb->str = str; /* TODO: strdup(str) ??? */
+	label = &label_list->label[label_list->count++];
+	label->type = type;
+	label->str = str; /* TODO: strdup(str) ??? */
 
-	return (unsigned) (lb - ll->label);
+	return (unsigned) (label - label_list->label);
 }
 
 /* Same, but rather dies than adds */
 
-unsigned py_labellist_find(struct py_labellist* ll, unsigned type, char* str) {
+unsigned py_labellist_find(struct py_labellist* label_list, unsigned type, char* str) {
 	unsigned i;
 
-	for(i = 0; i < ll->count; i++) {
-		if(ll->label[i].type == type /*&&
-                       strcmp(ll->label[i].str, str) == 0*/) {
+	for(i = 0; i < label_list->count; i++) {
+		if(label_list->label[i].type == type /*&&
+                       strcmp(label_list->label[i].str, str) == 0*/) {
+
 			return i;
 		}
 	}
 
 	/* TODO: Better EH. */
-	fprintf(stderr, "Label %d/'%s' not found\n", type, str);
-	abort();
+	py_fatal("Label dfa not found");
+	(void) str;
+
+	return ASYS_UINT_MAX;
 }
 
 static void py_grammar_translate_label(
-		struct py_grammar* g, struct py_label* lb) {
+		struct py_grammar* grammar, struct py_label* label) {
 
 	unsigned i;
 
-	if(lb->type == PY_NAME) {
-		for(i = 0; i < g->count; i++) {
-			if(strcmp(lb->str, g->dfas[i].name) == 0) {
-				lb->type = g->dfas[i].type;
-				lb->str = NULL;
-				return;
-			}
-		}
-		for(i = 0; i < (int) PY_N_TOKENS; i++) {
-			if(strcmp(lb->str, py_token_names[i]) == 0) {
-				lb->type = i;
-				lb->str = NULL;
+	if(label->type == PY_NAME) {
+		for(i = 0; i < grammar->count; i++) {
+			if(asys_string_equal(label->str, grammar->dfas[i].name)) {
+				label->type = grammar->dfas[i].type;
+				label->str = 0;
+
 				return;
 			}
 		}
 
-		printf("Can't translate PY_NAME label '%s'\n", lb->str);
-		return;
+		for(i = 0; i < (int) PY_N_TOKENS; i++) {
+			if(asys_string_equal(label->str, py_token_names[i])) {
+				label->type = i;
+				label->str = 0;
+
+				return;
+			}
+		}
+
+		/* TODO: Better EH. */
+		py_fatal("Can't translate PY_NAME label");
 	}
 
-	if(lb->type == PY_STRING) {
-		if(isalpha(lb->str[1])) {
+	if(label->type == PY_STRING) {
+		if(asys_character_is_letter(label->str[1])) {
 			char* p;
 
-			lb->type = PY_NAME;
-			lb->str++;
+			label->type = PY_NAME;
+			label->str++;
 
-			p = strchr(lb->str, '\'');
+			p = asys_string_find(label->str, '\'');
 			if(p) *p = '\0';
 		}
 		else {
-			if(lb->str[2] == lb->str[0]) {
-				int type = (int) py_token_char(lb->str[1]);
+			if(label->str[2] == label->str[0]) {
+				int type = (int) py_token_char(label->str[1]);
+
 				if(type != PY_OP) {
-					lb->type = type;
-					lb->str = NULL;
+					label->type = type;
+					label->str = 0;
 				}
-				else printf("Unknown PY_OP label %s\n", lb->str);
+				/* TODO: Better EH. */
+				else py_fatal("Unknown PY_OP label");
 			}
-			else printf("Can't translate PY_STRING label %s\n", lb->str);
+			/* TODO: Better EH. */
+			else py_fatal("Can't translate PY_STRING label");
 		}
 	}
-	else printf("Can't translate label\n");
+	/* TODO: Better EH. */
+	else py_fatal("Can't translate label");
 }
 
-void py_grammar_translate(struct py_grammar* g) {
+void py_grammar_translate(struct py_grammar* grammar) {
 	unsigned i;
 
 	/* Don't translate EMPTY */
-	for(i = PY_LABEL_EMPTY + 1; i < g->labels.count; i++) {
-		py_grammar_translate_label(g, &g->labels.label[i]);
+	for(i = PY_LABEL_EMPTY + 1; i < grammar->labels.count; i++) {
+		py_grammar_translate_label(grammar, &grammar->labels.label[i]);
 	}
 }

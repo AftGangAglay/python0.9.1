@@ -4,7 +4,6 @@
  */
 
 #include <python/evalops.h>
-#include <python/env.h>
 #include <python/ceval.h>
 
 #include <python/object/int.h>
@@ -97,7 +96,7 @@ struct py_object* py_object_mod(struct py_object* v, struct py_object* w) {
 		return py_int_new(py_int_get(v) % py_int_get(w));
 	}
 	else if(v->type == PY_TYPE_FLOAT && w->type == PY_TYPE_FLOAT) {
-		return py_float_new(asys_fmod(py_float_get(v), py_float_get(w)));
+		return py_float_new(asys_math_fmod(py_float_get(v), py_float_get(w)));
 	}
 
 	return 0;
@@ -249,7 +248,7 @@ struct py_object* py_call_function(
 				args = arglist;
 			}
 
-			PY_FALLTHROUGH;
+			ASYS_FALLTHROUGH;
 		}
 		/* FALLTHROUGH */
 		case PY_TYPE_FUNC: {
@@ -332,7 +331,7 @@ struct py_object* py_cmp_outcome(
 	int res = 0;
 
 	switch(op) {
-		case PY_CMP_IS:; PY_FALLTHROUGH;
+		case PY_CMP_IS:; ASYS_FALLTHROUGH;
 		/* FALLTHROUGH */
 		case PY_CMP_IS_NOT: {
 			res = (v == w);
@@ -341,7 +340,7 @@ struct py_object* py_cmp_outcome(
 			break;
 		}
 
-		case PY_CMP_IN:; PY_FALLTHROUGH;
+		case PY_CMP_IN:; ASYS_FALLTHROUGH;
 		/* FALLTHROUGH */
 		case PY_CMP_NOT_IN: {
 			if(!py_is_varobject(w)) return 0;

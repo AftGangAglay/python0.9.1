@@ -6,7 +6,6 @@
 /* Execute compiled code */
 
 #include <python/state.h>
-#include <python/env.h>
 #include <python/evalops.h>
 #include <python/import.h>
 #include <python/traceback.h>
@@ -296,11 +295,11 @@ struct py_object* py_code_eval(
 				break;
 			}
 
-			case PY_OP_SLICE + 0:; PY_FALLTHROUGH;
+			case PY_OP_SLICE + 0:; ASYS_FALLTHROUGH;
 			/* FALLTHROUGH */
-			case PY_OP_SLICE + 1:; PY_FALLTHROUGH;
+			case PY_OP_SLICE + 1:; ASYS_FALLTHROUGH;
 			/* FALLTHROUGH */
-			case PY_OP_SLICE + 2:; PY_FALLTHROUGH;
+			case PY_OP_SLICE + 2:; ASYS_FALLTHROUGH;
 			/* FALLTHROUGH */
 			case PY_OP_SLICE + 3: {
 				if((opcode - PY_OP_SLICE) & 2) w = *--stack_pointer;
@@ -660,7 +659,7 @@ struct py_object* py_code_eval(
 				break;
 			}
 
-			case PY_OP_SETUP_LOOP:; PY_FALLTHROUGH;
+			case PY_OP_SETUP_LOOP:; ASYS_FALLTHROUGH;
 			/* FALLTHROUGH */
 			case PY_OP_SETUP_EXCEPT: {
 				if(f->iblock >= f->nblocks) {

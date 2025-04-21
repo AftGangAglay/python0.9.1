@@ -5,16 +5,16 @@
 
 /* Tokenizer implementation */
 
-/* TODO: This is rather old, should be restructured perhaps */
-
 /* TODO: Need a better interface to report errors than writing to stderr */
 
-#include <python/std.h>
 #include <python/tokenizer.h>
 #include <python/result.h>
 #include <python/token.h>
+#include <python/errors.h>
 
 #include <asys/stream.h>
+#include <asys/memory.h>
+#include <asys/string.h>
 #include <asys/log.h>
 
 #ifndef PY_TABSIZE
@@ -35,114 +35,109 @@ char* py_token_names[] = {
 /* Create and initialize a new tok_state structure */
 
 static struct py_tokenizer* py_tokenizer_new(void) {
-	struct py_tokenizer* tok = malloc(sizeof(struct py_tokenizer));
-	if(tok == NULL) return NULL;
+	struct py_tokenizer* tokenizer;
 
-	tok->buf = tok->cur = tok->end = tok->inp = NULL;
-	tok->done = PY_RESULT_OK;
-	tok->fp = NULL;
-	tok->indent = 0;
-	tok->indstack[0] = 0;
-	tok->atbol = 1;
-	tok->pendin = 0;
-	tok->lineno = 0;
+	tokenizer = asys_memory_allocate_zero(1, sizeof(struct py_tokenizer));
+	if(!tokenizer) return 0;
 
-	return tok;
+	tokenizer->done = PY_RESULT_OK;
+
+	return tokenizer;
 }
 
 /* Set up tokenizer for file */
 
 struct py_tokenizer* py_tokenizer_setup_file(struct asys_stream* fp) {
+	struct py_tokenizer* tokenizer = py_tokenizer_new();
+	if(!tokenizer) return 0;
 
-	struct py_tokenizer* tok = py_tokenizer_new();
-	if(tok == NULL) return NULL;
+	tokenizer->buf = asys_memory_allocate(
+			ASYS_FIXED_BUFFER_SIZE * sizeof(char));
 
-	if((tok->buf = malloc(BUFSIZ * sizeof(char))) == NULL) {
-		free(tok);
-		return NULL;
+	if(!tokenizer->buf) {
+		py_tokenizer_delete(tokenizer);
+		return 0;
 	}
 
-	tok->cur = tok->inp = tok->buf;
-	tok->end = tok->buf + BUFSIZ;
-	tok->fp = fp;
+	tokenizer->cur = tokenizer->inp = tokenizer->buf;
+	tokenizer->end = tokenizer->buf + ASYS_FIXED_BUFFER_SIZE;
+	tokenizer->fp = fp;
 
-	return tok;
+	return tokenizer;
 }
 
 
 /* Free a tok_state structure */
 
-void py_tokenizer_delete(struct py_tokenizer* tok) {
+void py_tokenizer_delete(struct py_tokenizer* tokenizer) {
 	/* TODO: really need a separate flag to say 'my buffer' */
-	if(tok->fp != NULL && tok->buf != NULL) free(tok->buf);
+	if(tokenizer->fp && tokenizer->buf) asys_memory_free(tokenizer->buf);
 
-	free(tok);
+	asys_memory_free(tokenizer);
 }
 
 
-/* Get next char, updating state; error code goes into tok->done */
+/* Get next char, updating state; error code goes into tokenizer->done */
 
-static int py_tokenizer_next_character(struct py_tokenizer* tok) {
-	if(tok->done != PY_RESULT_OK) return EOF;
+static int py_tokenizer_next_character(struct py_tokenizer* tokenizer) {
+	if(tokenizer->done != PY_RESULT_OK) return -1;
 
 	for(;;) {
-		if(tok->cur < tok->inp) return *tok->cur++;
+		asys_size_t size;
 
-		if(tok->fp == NULL) {
-			tok->done = PY_RESULT_EOF;
-			return EOF;
+		if(tokenizer->cur < tokenizer->inp) return *tokenizer->cur++;
+
+		if(!tokenizer->fp) {
+			tokenizer->done = PY_RESULT_EOF;
+			return -1;
 		}
 
-		if(tok->inp > tok->buf && tok->inp[-1] == '\n') tok->inp = tok->buf;
+		if(tokenizer->inp > tokenizer->buf && tokenizer->inp[-1] == '\n') {
+			tokenizer->inp = tokenizer->buf;
+		}
 
-		if(tok->inp == tok->end) {
-			void* newptr;
-			unsigned n = (unsigned) (tok->end - tok->buf);
-			char* new = tok->buf;
+		if(tokenizer->inp == tokenizer->end) {
+			unsigned n = (unsigned) (tokenizer->end - tokenizer->buf);
+			char* new = tokenizer->buf;
 
-			newptr = realloc(new, 2 * n * sizeof(char));
-			if(newptr == NULL) {
-				free(new);
-				tok->done = PY_RESULT_OOM;
-				return EOF;
+			new = asys_memory_reallocate_safe(new, 2 * n * sizeof(char));
+			if(!new) {
+				tokenizer->done = PY_RESULT_OOM;
+				return -1;
 			}
-			new = newptr;
 
-			tok->buf = new;
-			tok->inp = tok->buf + n;
-			tok->end = tok->inp + n;
-		}
-		{
-			size_t size;
-
-			tok->cur = tok->inp;
-
-			size = (size_t) (tok->end - tok->inp);
-
-			/* TODO: Better EH. */
-			if(asys_stream_read_line(tok->fp, tok->inp, size)) {
-				tok->done = PY_RESULT_ERROR;
-			}
+			tokenizer->buf = new;
+			tokenizer->inp = tokenizer->buf + n;
+			tokenizer->end = tokenizer->inp + n;
 		}
 
-		if(tok->done != PY_RESULT_OK) return EOF;
+		tokenizer->cur = tokenizer->inp;
 
-		tok->inp = strchr(tok->inp, '\0');
+		size = (asys_size_t) (tokenizer->end - tokenizer->inp);
+
+		/* TODO: Better EH. */
+		if(asys_stream_read_line(tokenizer->fp, tokenizer->inp, size)) {
+			tokenizer->done = PY_RESULT_ERROR;
+			return -1;
+		}
+
+		if(tokenizer->done != PY_RESULT_OK) return -1;
+
+		tokenizer->inp = asys_string_find(tokenizer->inp, '\0');
 	}
 }
 
 
 /* Back-up one character */
 
-static void py_tokenizer_back(struct py_tokenizer* tok, int c) {
-	if(c != EOF) {
-		/* TODO: Better EH. */
-		if(--tok->cur < tok->buf) {
-			fprintf(stderr, "py_tokenizer_back: begin of buffer\n");
-			abort();
+static void py_tokenizer_back(struct py_tokenizer* tokenizer, int c) {
+	if(c != -1) {
+		if(--tokenizer->cur < tokenizer->buf) {
+			/* TODO: Better EH. */
+			py_fatal("py_tokenizer_back: begin of buffer");
 		}
 
-		if(*tok->cur != c) *tok->cur = (char) c;
+		if(*tokenizer->cur != c) *tokenizer->cur = (char) c;
 	}
 }
 
@@ -179,142 +174,151 @@ int py_token_char(int c) {
 /* Get next token, after space stripping etc. */
 
 unsigned py_tokenizer_get(
-		struct py_tokenizer* tok, /* In/out: tokenizer state */
+		struct py_tokenizer* tokenizer, /* In/out: tokenizer state */
 		char** p_start, /* Out: point to start/end of token */
 		char** p_end) {
 
 	int c = 0;
 
 	/* Get indentation level */
-	if(tok->atbol) {
+	if(tokenizer->atbol) {
 		int col = 0;
-		tok->atbol = 0;
-		tok->lineno++;
+
+		tokenizer->atbol = 0;
+		tokenizer->lineno++;
 
 		for(;;) {
-			c = py_tokenizer_next_character(tok);
+			c = py_tokenizer_next_character(tokenizer);
 
 			if(c == ' ') col++;
 			else if(c == '\t') col = (col / PY_TABSIZE + 1) * PY_TABSIZE;
 			else break;
 		}
 
-		py_tokenizer_back(tok, c);
-		if(col == tok->indstack[tok->indent]) {
+		py_tokenizer_back(tokenizer, c);
+
+		/* TODO: Reformat. */
+		if(col == tokenizer->indstack[tokenizer->indent]) {
 			/* No change */
 		}
-		else if(col > tok->indstack[tok->indent]) {
+		else if(col > tokenizer->indstack[tokenizer->indent]) {
 			/* Indent -- always one */
-			if(tok->indent + 1 >= PY_MAX_INDENT) {
-				fprintf(stderr, "excessive indent\n");
-				tok->done = PY_RESULT_TOKEN;
+			if(tokenizer->indent + 1 >= PY_MAX_INDENT) {
+				/* TODO: Better EH. */
+				tokenizer->done = PY_RESULT_TOKEN;
 				return PY_ERRORTOKEN;
 			}
 
-			tok->pendin++;
-			tok->indstack[++tok->indent] = col;
+			tokenizer->pendin++;
+			tokenizer->indstack[++tokenizer->indent] = col;
 		}
-		else /* col < tok->indstack[tok->indent] */ {
+		else /* col < tokenizer->indstack[tokenizer->indent] */ {
 			/* Dedent -- any number, must be consistent */
-			while(tok->indent > 0 && col < tok->indstack[tok->indent]) {
-				tok->indent--;
-				tok->pendin--;
+			while(tokenizer->indent > 0 &&
+					col < tokenizer->indstack[tokenizer->indent]) {
+
+				tokenizer->indent--;
+				tokenizer->pendin--;
 			}
 
-			if(col != tok->indstack[tok->indent]) {
-				fprintf(stderr, "inconsistent dedent\n");
-				tok->done = PY_RESULT_TOKEN;
+			if(col != tokenizer->indstack[tokenizer->indent]) {
+				/* TODO: Better EH. */
+				tokenizer->done = PY_RESULT_TOKEN;
 				return PY_ERRORTOKEN;
 			}
 		}
 	}
 
-	*p_start = *p_end = tok->cur;
+	*p_start = *p_end = tokenizer->cur;
 
 	/* Return pending indents/dedents */
-	if(tok->pendin != 0) {
-		if(tok->pendin < 0) {
-			tok->pendin++;
+	if(tokenizer->pendin != 0) {
+		if(tokenizer->pendin < 0) {
+			tokenizer->pendin++;
 			return PY_DEDENT;
 		}
 		else {
-			tok->pendin--;
+			tokenizer->pendin--;
 			return PY_INDENT;
 		}
 	}
 
 	/*
 	 * NOTE(agapatch): This is a bit of a janky way to fix files following
-	 * 				  Scripts in packs. This may make unexpected EOF cause
+	 * 				  Scripts in packs. This may make unexpected -1 cause
 	 * 				  Crashes or unstable script engine state.
 	 */
-	if(c == EOF || c == 0xFF) return PY_ENDMARKER;
+	if(c == -1 || c == 0xFF) return PY_ENDMARKER;
 
 	again:
 	/* Skip spaces */
 	do {
-		c = py_tokenizer_next_character(tok);
+		c = py_tokenizer_next_character(tokenizer);
 	} while(c == ' ' || c == '\t' || c == '\r');
 
 	/* Set start of current token */
-	*p_start = tok->cur - 1;
+	*p_start = tokenizer->cur - 1;
 
 	/* Skip comment */
 	if(c == '#') {
 		do {
-			c = py_tokenizer_next_character(tok);
-		} while(c != EOF && c != 0xFF && c != '\n');
+			c = py_tokenizer_next_character(tokenizer);
+		} while(c != -1 && c != 0xFF && c != '\n');
 	}
 
-	/* Check for EOF and errors now */
-	if(c == EOF || c == 0xFF) {
-		return tok->done == PY_RESULT_EOF ? PY_ENDMARKER : PY_ERRORTOKEN;
+	/* Check for -1 and errors now */
+	if(c == -1 || c == 0xFF) {
+		return tokenizer->done == PY_RESULT_EOF ? PY_ENDMARKER : PY_ERRORTOKEN;
 	}
 
 	/* Identifier (most frequent token!) */
-	if(isalpha(c) || c == '_') {
+	if(asys_character_is_letter(c) || c == '_') {
 		do {
-			c = py_tokenizer_next_character(tok);
-		} while(isalnum(c) || c == '_');
-		py_tokenizer_back(tok, c);
-		*p_end = tok->cur;
+			c = py_tokenizer_next_character(tokenizer);
+		} while(asys_character_is_dec_digit(c) ||
+				asys_character_is_letter(c) || c == '_');
+
+		py_tokenizer_back(tokenizer, c);
+		*p_end = tokenizer->cur;
+
 		return PY_NAME;
 	}
 
 	/* Newline */
 	if(c == '\n') {
-		tok->atbol = 1;
-		*p_end = tok->cur - 1; /* Leave '\n' out of the string */
+		tokenizer->atbol = 1;
+		*p_end = tokenizer->cur - 1; /* Leave '\n' out of the string */
+
 		return PY_NEWLINE;
 	}
 
 	/* Number */
-	if(isdigit(c)) {
+	if(asys_character_is_dec_digit(c)) {
 		if(c == '0') {
 			/* Hex or octal */
-			c = py_tokenizer_next_character(tok);
-			if(c == '.') {
-				goto fraction;
-			}
+			c = py_tokenizer_next_character(tokenizer);
+			if(c == '.') goto fraction;
+
 			if(c == 'x' || c == 'X') {
 				/* Hex */
 				do {
-					c = py_tokenizer_next_character(tok);
-				} while(isxdigit(c));
+					c = py_tokenizer_next_character(tokenizer);
+				} while(asys_character_is_hex_digit(c));
 			}
 			else {
 				/* Octal; c is first char of it */
 				/* There's no 'isoctdigit' macro, sigh */
-				while('0' <= c && c < '8') {
-					c = py_tokenizer_next_character(tok);
+				while(asys_character_is_oct_digit(c)) {
+					c = py_tokenizer_next_character(tokenizer);
 				}
 			}
 		}
 		else {
 			/* Decimal */
 			do {
-				c = py_tokenizer_next_character(tok);
-			} while(isdigit(c));
+				c = py_tokenizer_next_character(tokenizer);
+			} while(asys_character_is_dec_digit(c));
+
 			/* Accept floating point numbers.
 			   XXX This accepts incomplete things like 12e or 1e+;
 				   worry about that at run-time.
@@ -323,63 +327,71 @@ unsigned py_tokenizer_get(
 				fraction:
 				/* Fraction */
 				do {
-					c = py_tokenizer_next_character(tok);
-				} while(isdigit(c));
+					c = py_tokenizer_next_character(tokenizer);
+				} while(asys_character_is_dec_digit(c));
 			}
+
 			if(c == 'e' || c == 'E') {
 				/* Exponent part */
-				c = py_tokenizer_next_character(tok);
+				c = py_tokenizer_next_character(tokenizer);
 				if(c == '+' || c == '-') {
-					c = py_tokenizer_next_character(tok);
+					c = py_tokenizer_next_character(tokenizer);
 				}
-				while(isdigit(c)) {
-					c = py_tokenizer_next_character(tok);
+
+				while(asys_character_is_dec_digit(c)) {
+					c = py_tokenizer_next_character(tokenizer);
 				}
 			}
 		}
-		py_tokenizer_back(tok, c);
-		*p_end = tok->cur;
+
+		py_tokenizer_back(tokenizer, c);
+		*p_end = tokenizer->cur;
+
 		return PY_NUMBER;
 	}
 
 	/* String */
 	if(c == '\'') {
 		for(;;) {
-			c = py_tokenizer_next_character(tok);
-			if(c == '\n' || c == EOF || c == 0xFF) {
-				tok->done = PY_RESULT_TOKEN;
+			c = py_tokenizer_next_character(tokenizer);
+			if(c == '\n' || c == -1 || c == 0xFF) {
+				tokenizer->done = PY_RESULT_TOKEN;
 				return PY_ERRORTOKEN;
 			}
+
 			if(c == '\\') {
-				c = py_tokenizer_next_character(tok);
-				*p_end = tok->cur;
-				if(c == '\n' || c == EOF || c == 0xFF) {
-					tok->done = PY_RESULT_TOKEN;
+				c = py_tokenizer_next_character(tokenizer);
+				*p_end = tokenizer->cur;
+
+				if(c == '\n' || c == -1 || c == 0xFF) {
+					tokenizer->done = PY_RESULT_TOKEN;
 					return PY_ERRORTOKEN;
 				}
+
 				continue;
 			}
-			if(c == '\'') {
-				break;
-			}
+
+			if(c == '\'') break;
 		}
-		*p_end = tok->cur;
+
+		*p_end = tokenizer->cur;
+
 		return PY_STRING;
 	}
 
 	/* Line continuation */
 	if(c == '\\') {
-		c = py_tokenizer_next_character(tok);
-		if(c == '\r') c = py_tokenizer_next_character(tok);
+		c = py_tokenizer_next_character(tokenizer);
+		if(c == '\r') c = py_tokenizer_next_character(tokenizer);
 		if(c != '\n') {
-			tok->done = PY_RESULT_TOKEN;
+			tokenizer->done = PY_RESULT_TOKEN;
 			return PY_ERRORTOKEN;
 		}
-		tok->lineno++;
+		tokenizer->lineno++;
 		goto again; /* Read next line */
 	}
 
 	/* Punctuation character */
-	*p_end = tok->cur;
+	*p_end = tokenizer->cur;
 	return py_token_char(c);
 }

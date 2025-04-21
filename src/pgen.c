@@ -13,7 +13,6 @@
 #include <python/grammar.h>
 #include <python/metagrammar.h>
 #include <python/pgen.h>
-#include <python/std.h>
 
 #include <asys/memory.h>
 
@@ -378,7 +377,7 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 
 	ss = py_bitset_new(nbits);
 	py_nfa_add_closure(ss, nf, nf->start);
-	states = malloc(sizeof(struct py_ss_state));
+	states = asys_memory_allocate(sizeof(struct py_ss_state));
 	/* TODO: Better EH. */
 	if(!states) py_fatal("no mem for state in py_dfa_new");
 
@@ -390,10 +389,7 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 	current->deleted = 0;
 	current->finish = PY_TESTBIT(ss, nf->finish);
 
-	if(current->finish) {
-		printf(
-				"Error: nonterminal '%s' may produce empty.\n", nf->name);
-	}
+	if(current->finish) py_fatal("Error: nonterminal may produce empty");
 
 	/* This algorithm is from a book written before
 	   the invention of structured programming... */
@@ -410,8 +406,6 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 
 			/* For all non-empty arcs from this state... */
 			for(iarc = 0; iarc < st->count; iarc++) {
-				void* newptr;
-
 				ar = &st->arcs[iarc];
 				if(ar->label == PY_LABEL_EMPTY) continue;
 
@@ -422,20 +416,19 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 				}
 
 				/* Add new arc for this state */
-				newptr = realloc(
+				current->arcs = asys_memory_reallocate_safe(
 						current->arcs,
 						(current->count + 1) * sizeof(struct py_ss_arc));
-				if(!newptr) {
+
+				if(!current->arcs) {
 					/* TODO: Better EH. */
-					free(newptr);
 					py_fatal("oom");
 				}
-				current->arcs = newptr;
 
 				ss_arc = &current->arcs[current->count++];
 				ss_arc->label = ar->label;
 				ss_arc->bitset = py_bitset_new(nbits);
-				ss_arc->arrow = UINT_MAX;
+				ss_arc->arrow = ASYS_UINT_MAX;
 
 				found:;
 				/* Add destination */
@@ -445,8 +438,6 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 
 		/* Now look up all the arrow states */
 		for(jarc = 0; jarc < states[istate].count; jarc++) {
-			void* newptr;
-
 			ss_arc = &states[istate].arcs[jarc];
 
 			for(jstate = 0; jstate < nstates; jstate++) {
@@ -458,13 +449,13 @@ static void py_dfa_new(struct py_nfa* nf, struct py_dfa* d) {
 				}
 			}
 
-			newptr = realloc(states, (nstates + 1) * sizeof(struct py_ss_state));
-			if(!newptr) {
+			states = asys_memory_reallocate_safe(
+					states, (nstates + 1) * sizeof(struct py_ss_state));
+
+			if(!states) {
 				/* TODO: Better EH. */
-				free(states);
 				py_fatal("oom");
 			}
-			states = newptr;
 
 			ss_arc->arrow = nstates;
 			current = &states[nstates++];

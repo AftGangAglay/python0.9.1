@@ -6,7 +6,6 @@
 /* Module definition and import implementation */
 
 #include <python/state.h>
-#include <python/env.h>
 #include <python/node.h>
 #include <python/graminit.h>
 #include <python/import.h>
@@ -42,6 +41,8 @@ struct py_object* py_module_add(struct py_env* env, const char* name) {
 	py_object_decref(m); /* Yes, it still exists, in py_modules! */
 	return m;
 }
+
+enum asys_result py_open_r(struct py_env*, const char*, struct asys_stream**);
 
 static struct py_object* py_get_module(
 		struct py_env* env, const char* name, struct py_object** ret) {

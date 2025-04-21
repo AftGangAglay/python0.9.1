@@ -12,7 +12,6 @@
  * XXX Include function name in code (and module names?)
  */
 
-#include <python/env.h>
 #include <python/token.h>
 #include <python/graminit.h>
 #include <python/opcode.h>
@@ -766,7 +765,7 @@ static void py_compile_assign(
 	/* Loop to avoid trivial recursion */
 	for(;;) {
 		switch(n->type) {
-			case PY_GRAMMAR_EXPRESSION_LIST:; PY_FALLTHROUGH;
+			case PY_GRAMMAR_EXPRESSION_LIST:; ASYS_FALLTHROUGH;
 			/* FALLTHROUGH */
 			case PY_GRAMMAR_TEST_LIST: {
 				if(n->count > 1) {
@@ -779,9 +778,9 @@ static void py_compile_assign(
 				break;
 			}
 
-			case PY_GRAMMAR_TEST:; PY_FALLTHROUGH;
+			case PY_GRAMMAR_TEST:; ASYS_FALLTHROUGH;
 			/* FALLTHROUGH */
-			case PY_GRAMMAR_TEST_AND:; PY_FALLTHROUGH;
+			case PY_GRAMMAR_TEST_AND:; ASYS_FALLTHROUGH;
 			/* FALLTHROUGH */
 			case PY_GRAMMAR_TEST_NOT: {
 				if(n->count > 1) {
@@ -1334,14 +1333,14 @@ static void py_compile_node(struct py_compiler* c, struct py_node* n) {
 
 		/* Trivial parse tree nodes */
 
-		case PY_GRAMMAR_STATEMENT:; PY_FALLTHROUGH;
+		case PY_GRAMMAR_STATEMENT:; ASYS_FALLTHROUGH;
 		/* FALLTHROUGH */
 		case PY_GRAMMAR_FLOW_STATEMENT: {
 			py_compile_node(c, &n->children[0]);
 			break;
 		}
 
-		case PY_GRAMMAR_SIMPLE_STATEMENT:; PY_FALLTHROUGH;
+		case PY_GRAMMAR_SIMPLE_STATEMENT:; ASYS_FALLTHROUGH;
 		/* FALLTHROUGH */
 		case PY_GRAMMAR_COMPOUND_STATEMENT: {
 			py_compile_add_op_arg(c, PY_OP_SET_LINENO, n->lineno);
