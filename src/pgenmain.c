@@ -6,7 +6,7 @@
 /* Parser generator main program */
 
 /*
- * This expects a filename containing the grammar as argv[1]
+ * This expects a grammar_file containing the grammar as argv[1]
  * It writes its output on two files in the current directory:
  * - "graminit.c" gets the grammar as a bunch of initialized data
  * - "graminit.h" gets the grammar's non-terminals as #defines.
@@ -14,78 +14,85 @@
  * written to stdout, or sometimes to stderr.
  */
 
-#include <python/std.h>
 #include <python/grammar.h>
 #include <python/node.h>
 #include <python/parsetok.h>
 #include <python/pgen.h>
 
 #include <asys/stream.h>
+#include <asys/error.h>
+#include <asys/main.h>
 
-/* Forward */
-struct py_grammar* py_load_grammar(const char*);
+/* TODO: Leaky stream EH throughout this file. */
 
-int main(int argc, char** argv) {
-	struct py_grammar* g;
-	FILE* fp;
-	char* filename;
+enum asys_result py_load_grammar(
+		const char* grammar_file, struct py_grammar** grammar) {
 
-	if(argc != 4) {
-		fprintf(stderr, "usage: %s grammar outsource outheader\n", argv[0]);
-		exit(2);
-	}
+	enum asys_result result;
 
-	filename = argv[1];
-	g = py_load_grammar(filename);
+	struct asys_stream stream;
+	struct py_node* n = 0;
 
-	fp = fopen(argv[2], "w");
-	if(fp == NULL) {
-		perror("graminit.c");
-		exit(1);
-	}
+	if((result = asys_stream_new(&stream, grammar_file))) return result;
 
-	py_grammar_print(g, fp);
-	fclose(fp);
+	py_parse_file(
+			&stream, grammar_file, &py_meta_grammar, py_meta_grammar.start,
+			&n);
 
-	fp = fopen(argv[3], "w");
-	if(fp == NULL) {
-		perror("graminit.h");
-		exit(1);
-	}
+	if(!n) return ASYS_RESULT_ERROR;
 
-	py_grammar_print_nonterminals(g, fp);
-	fclose(fp);
+	if(!(*grammar = py_grammar_gen(n))) return ASYS_RESULT_ERROR;
 
-	exit(0);
+	return ASYS_RESULT_OK;
 }
 
-struct py_grammar* py_load_grammar(const char* filename) {
+enum asys_result asys_main(struct asys_main_data* main_data) {
+	enum asys_result result;
+
+	struct py_grammar* grammar;
+
 	struct asys_stream stream;
-	struct py_node* n;
-	struct py_grammar* g0, * g;
 
-	g0 = &py_meta_grammar;
-	n = NULL;
-	/* TODO: Better EH and cleanups. */
-	asys_stream_new(&stream, filename);
-	py_parse_file(&stream, filename, g0, g0->start, &n);
-	if(n == NULL) {
-		fprintf(stderr, "Parsing error.\n");
-		exit(1);
+	const char* grammar_file;
+	const char* source_file;
+	const char* header_file;
+
+	if(main_data->argc != 4) {
+		asys_result_fatal(
+				__FILE__, "err: usage: pgenmain <grammar> <source> <header>",
+				ASYS_RESULT_BAD_PARAM);
 	}
 
-	g = py_grammar_gen(n);
-	if(g == NULL) {
-		fprintf(stderr, "Bad grammar.\n");
-		exit(1);
+	grammar_file = main_data->argv[1];
+	source_file = main_data->argv[2];
+	header_file = main_data->argv[3];
+
+	if((result = py_load_grammar(grammar_file, &grammar))) return result;
+
+	/* Write source. */
+	{
+		result = asys_stream_new_write(&stream, source_file);
+		if(result) return result;
+
+		if((result = py_grammar_print(grammar, &stream))) return result;
+
+		if((result = asys_stream_delete(&stream))) return result;
 	}
 
-	return g;
+	/* Write header. */
+	{
+		result = asys_stream_new_write(&stream, header_file);
+		if(result) return result;
+
+		result = py_grammar_print_nonterminals(grammar, &stream);
+		if(result) return result;
+
+		if((result = asys_stream_delete(&stream))) return result;
+	}
+
+	return ASYS_RESULT_OK;
 }
 
 void py_fatal(const char* msg) {
-	fprintf(stderr, "pgen: FATAL ERROR: %s\n", msg);
-	exit(1);
+	asys_result_fatal(__FILE__, msg, ASYS_RESULT_ERROR);
 }
-
-/* TODO: check for duplicate definitions of names (instead of py_fatal err) */

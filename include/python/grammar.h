@@ -10,6 +10,10 @@
 
 #include <python/bitset.h>
 
+#include <asys/result.h>
+
+struct asys_stream;
+
 /* A label of an arc */
 struct py_label {
 	unsigned type;
@@ -74,8 +78,9 @@ void py_grammar_translate(struct py_grammar*);
 int py_grammar_add_firsts(struct py_grammar*);
 void py_grammar_add_accels(struct py_grammar*);
 void py_grammar_delete_accels(void);
-void py_grammar_print(struct py_grammar*, void*);
-void py_grammar_print_nonterminals(struct py_grammar*, void*);
+enum asys_result py_grammar_print(struct py_grammar*, struct asys_stream*);
+enum asys_result py_grammar_print_nonterminals(
+		struct py_grammar*, struct asys_stream*);
 
 unsigned py_dfa_add_state(struct py_dfa*);
 void py_dfa_add_arc(struct py_dfa*, unsigned, unsigned, unsigned);

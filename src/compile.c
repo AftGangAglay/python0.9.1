@@ -12,7 +12,6 @@
  * XXX Include function name in code (and module names?)
  */
 
-#include <python/std.h>
 #include <python/env.h>
 #include <python/token.h>
 #include <python/graminit.h>
@@ -24,6 +23,10 @@
 #include <python/object/int.h>
 #include <python/object/float.h>
 #include <python/object/string.h>
+
+#include <asys/memory.h>
+#include <asys/string.h>
+#include <asys/error.h>
 
 #define PY_CODE_CHUNK (1024)
 
@@ -89,15 +92,13 @@ static void py_compiler_delete(struct py_compiler* c) {
 
 static void py_compile_add_byte(struct py_compiler* c, py_byte_t byte) {
 	if(c->offset >= c->len) {
-		void* newptr = realloc(c->code, c->len + PY_CODE_CHUNK);
-		if(!newptr) {
-			free(c->code);
-			/* TODO: Better nomem handling */
-			abort();
+		c->code = asys_memory_reallocate_safe(c->code, c->len + PY_CODE_CHUNK);
+		if(!c->code) {
+			/* TODO: Better EH */
+			py_fatal("oom");
 		}
 
-		c->code = newptr;
-		memset(c->code + c->len, 0, PY_CODE_CHUNK);
+		asys_memory_zero(c->code + c->len, PY_CODE_CHUNK);
 		c->len += PY_CODE_CHUNK;
 	}
 
@@ -186,34 +187,29 @@ static void py_compile_add_op_name(
 	}
 
 	if(!(v = py_string_new(name))) {
-		/* TODO: Proper EH. */
-		abort();
+		/* TODO: Better EH */
+		py_fatal("oom");
 	}
-	else {
-		i = py_compile_add(c->names, v);
-		py_object_decref(v);
-	}
+
+	i = py_compile_add(c->names, v);
+	py_object_decref(v);
 
 	py_compile_add_op_arg(c, op, i);
 }
 
 static struct py_object* py_compile_parse_number(char* s) {
 	char* end = s;
-#ifdef _WIN64
-	/* TODO: Technically not C89. */
-	py_value_t x = strtoll(s, &end, 0);
-#else
-	py_value_t x = strtol(s, &end, 0);
-#endif
+
+	py_value_t x = asys_string_to_native_long(s, &end);
 
 	if(*end == '\0') return py_int_new(x);
 
 	if(*end == '.' || *end == 'e' || *end == 'E') {
-		return py_float_new(strtod(s, 0));
+		return py_float_new(asys_string_to_double(s, 0));
 	}
 
 	py_error_set_string(py_runtime_error, "bad number syntax");
-	return NULL;
+	return 0;
 }
 
 static struct py_object* py_compile_parse_string(const char* s) {
@@ -223,10 +219,8 @@ static struct py_object* py_compile_parse_string(const char* s) {
 	struct py_object* retval;
 
 	for(i = 1; s[i] != '\''; ++i) {
-		/* TODO: Leaky realloc. */
-		void* newptr = realloc(buf, ++len);
-		if(!newptr) return py_error_set_nomem();
-		buf = newptr;
+		buf = asys_memory_reallocate_safe(buf, ++len);
+		if(!buf) return py_error_set_nomem();
 
 		buf[len - 1] = s[i];
 		if(s[i] != '\\') continue;
@@ -302,14 +296,13 @@ static void py_compile_atom(struct py_compiler* c, struct py_node* n) {
 		}
 
 		case PY_NUMBER: {
-			if((v = py_compile_parse_number(ch->str)) == NULL) {
-				/* TODO: Proper EH. */
-				abort();
+			if(!(v = py_compile_parse_number(ch->str))) {
+				/* TODO: Better EH. */
+				py_fatal("oom");
 			}
-			else {
-				i = py_compile_add_const(c, v);
-				py_object_decref(v);
-			}
+
+			i = py_compile_add_const(c, v);
+			py_object_decref(v);
 
 			py_compile_add_op_arg(c, PY_OP_LOAD_CONST, i);
 
@@ -317,14 +310,13 @@ static void py_compile_atom(struct py_compiler* c, struct py_node* n) {
 		}
 
 		case PY_STRING: {
-			if((v = py_compile_parse_string(ch->str)) == NULL) {
-				/* TODO: Proper EH. */
-				abort();
+			if(!(v = py_compile_parse_string(ch->str))) {
+				/* TODO: Better EH. */
+				py_fatal("oom");
 			}
-			else {
-				i = py_compile_add_const(c, v);
-				py_object_decref(v);
-			}
+
+			i = py_compile_add_const(c, v);
+			py_object_decref(v);
 
 			py_compile_add_op_arg(c, PY_OP_LOAD_CONST, i);
 
@@ -338,11 +330,8 @@ static void py_compile_atom(struct py_compiler* c, struct py_node* n) {
 		}
 
 		default: {
-			fprintf(stderr, "node type %d\n", ch->type);
-			py_error_set_string(
-					py_system_error, "py_compile_atom: unexpected node type");
-			/* TODO: Proper EH. */
-			abort();
+			/* TODO: Better EH. */
+			py_fatal("py_compile_atom: unexpected node type");
 		}
 	}
 }
@@ -409,11 +398,8 @@ static void com_apply_trailer(struct py_compiler* c, struct py_node* n) {
 		}
 
 		default: {
-			py_error_set_string(
-					py_system_error,
-					"com_apply_trailer: unknown PY_GRAMMAR_TRAILER type");
-			/* TODO: Proper EH. */
-			abort();
+			/* TODO: Better EH. */
+			py_fatal("com_apply_trailer: unknown PY_GRAMMAR_TRAILER type");
 		}
 	}
 }
@@ -464,11 +450,8 @@ static void py_compile_term(struct py_compiler* c, struct py_node* n) {
 			}
 
 			default: {
-				py_error_set_string(
-						py_system_error,
-						"py_compile_term: term operator not *, / or %");
-				/* TODO: Proper EH. */
-				abort();
+				/* TODO: Better EH. */
+				py_fatal("py_compile_term: term operator not *, / or %");
 			}
 		}
 
@@ -501,11 +484,8 @@ static void py_compile_expression(struct py_compiler* c, struct py_node* n) {
 			}
 
 			default: {
-				py_error_set_string(
-						py_system_error,
-						"py_compile_expression: expr operator not + or -");
-				/* TODO: Proper EH. */
-				abort();
+				/* TODO: Better EH. */
+				py_fatal("py_compile_expression: expr operator not + or -");
 			}
 		}
 
@@ -526,8 +506,8 @@ static enum py_cmp_op py_compile_compare_type(struct py_node* n) {
 			case PY_GREATER: return PY_CMP_GT;
 			case PY_EQUAL: return PY_CMP_EQ;
 			case PY_NAME: {
-				if(strcmp(n->str, "in") == 0) return PY_CMP_IN;
-				if(strcmp(n->str, "is") == 0) return PY_CMP_IS;
+				if(asys_string_equal(n->str, "in")) return PY_CMP_IN;
+				else if(asys_string_equal(n->str, "is")) return PY_CMP_IS;
 			}
 		}
 	}
@@ -549,8 +529,12 @@ static enum py_cmp_op py_compile_compare_type(struct py_node* n) {
 			}
 
 			case PY_NAME: {
-				if(strcmp(n->children[1].str, "in") == 0) return PY_CMP_NOT_IN;
-				if(strcmp(n->children[0].str, "is") == 0) return PY_CMP_IS_NOT;
+				if(asys_string_equal(n->children[1].str, "in")) {
+					return PY_CMP_NOT_IN;
+				}
+				else if(asys_string_equal(n->children[0].str, "is")) {
+					return PY_CMP_IS_NOT;
+				}
 			}
 		}
 	}
@@ -615,10 +599,10 @@ static void py_compile_comparison(struct py_compiler* c, struct py_node* n) {
 
 		op = py_compile_compare_type(&n->children[i - 1]);
 		if(op == PY_CMP_BAD) {
-			py_error_set_string(
-					py_system_error, "py_compile_comparison: unknown PY_GRAMMAR_TEST_COMPARE op");
-			/* TODO: Proper EH. */
-			abort();
+			/* TODO: Better EH. */
+			py_fatal(
+					"py_compile_comparison:"
+					"unknown PY_GRAMMAR_TEST_COMPARE op");
 		}
 
 		py_compile_add_op_arg(c, PY_OP_COMPARE_OP, op);
@@ -715,10 +699,10 @@ static void py_compile_assign_trailer(
 
 	switch(n->children[0].type) {
 		case PY_LPAR: { /* '(' [PY_GRAMMAR_EXPRESSION_LIST] ')' */
-			py_error_set_string(
-					py_type_error, "can't assign to function call");
-			/* TODO: Proper EH. */
-			abort();
+			/* TODO: Better EH. */
+			py_fatal("can't assign to function call");
+
+			break;
 		}
 
 		case PY_DOT: { /* '.' PY_NAME */
@@ -739,10 +723,8 @@ static void py_compile_assign_trailer(
 		}
 
 		default: {
-			py_error_set_string(
-					py_type_error, "unknown PY_GRAMMAR_TRAILER type");
-			/* TODO: Proper EH. */
-			abort();
+			/* TODO: Better EH. */
+			py_fatal("unknown PY_GRAMMAR_TRAILER type");
 		}
 	}
 }
@@ -803,10 +785,8 @@ static void py_compile_assign(
 			/* FALLTHROUGH */
 			case PY_GRAMMAR_TEST_NOT: {
 				if(n->count > 1) {
-					py_error_set_string(
-							py_type_error, "can't assign to operator");
-					/* TODO: Proper EH. */
-					abort();
+					/* TODO: Better EH. */
+					py_fatal("can't assign to operator");
 				}
 
 				n = &n->children[0];
@@ -816,10 +796,8 @@ static void py_compile_assign(
 
 			case PY_GRAMMAR_TEST_COMPARE: {
 				if(n->count > 1) {
-					py_error_set_string(
-							py_type_error, "can't assign to operator");
-					/* TODO: Proper EH. */
-					abort();
+					/* TODO: Better EH. */
+					py_fatal("can't assign to operator");
 				}
 
 				n = &n->children[0];
@@ -829,10 +807,8 @@ static void py_compile_assign(
 
 			case PY_GRAMMAR_EXPRESSION: {
 				if(n->count > 1) {
-					py_error_set_string(
-							py_type_error, "can't assign to operator");
-					/* TODO: Proper EH. */
-					abort();
+					/* TODO: Better EH. */
+					py_fatal("can't assign to operator");
 				}
 
 				n = &n->children[0];
@@ -842,10 +818,8 @@ static void py_compile_assign(
 
 			case PY_GRAMMAR_TERM: {
 				if(n->count > 1) {
-					py_error_set_string(
-							py_type_error, "can't assign to operator");
-					/* TODO: Proper EH. */
-					abort();
+					/* TODO: Better EH. */
+					py_fatal("can't assign to operator");
 				}
 
 				n = &n->children[0];
@@ -855,10 +829,8 @@ static void py_compile_assign(
 
 			case PY_GRAMMAR_FACTOR: {/* ('+'|'-') PY_GRAMMAR_FACTOR | PY_GRAMMAR_ATOM PY_GRAMMAR_TRAILER* */
 				if(n->children[0].type != PY_GRAMMAR_ATOM) { /* '+' | '-' */
-					py_error_set_string(
-							py_type_error, "can't assign to operator");
-					/* TODO: Proper EH. */
-					abort();
+					/* TODO: Better EH. */
+					py_fatal("can't assign to operator");
 				}
 
 				if(n->count > 1) { /* PY_GRAMMAR_TRAILER present */
@@ -886,10 +858,8 @@ static void py_compile_assign(
 						n = &n->children[1];
 
 						if(n->type == PY_RPAR) {
-							py_error_set_string(
-									py_type_error, "can't assign to ()");
-							/* TODO: Proper EH. */
-							abort();
+							/* TODO: Better EH. */
+							py_fatal("can't assign to ()");
 						}
 
 						break;
@@ -899,10 +869,8 @@ static void py_compile_assign(
 						n = &n->children[1];
 
 						if(n->type == PY_RSQB) {
-							py_error_set_string(
-									py_type_error, "can't assign to []");
-							/* TODO: Proper EH. */
-							abort();
+							/* TODO: Better EH. */
+							py_fatal("can't assign to []");
 						}
 
 						py_compile_assign_list(c, n);
@@ -912,15 +880,12 @@ static void py_compile_assign(
 
 					case PY_NAME: {
 						py_compile_assign_name(c, &n->children[0]);
-
 						return;
 					}
 
 					default: {
-						py_error_set_string(
-								py_type_error, "can't assign to constant");
-						/* TODO: Proper EH. */
-						abort();
+						/* TODO: Better EH. */
+						py_fatal("can't assign to constant");
 					}
 				}
 
@@ -928,10 +893,8 @@ static void py_compile_assign(
 			}
 
 			default: {
-				py_error_set_string(
-						py_system_error, "py_compile_assign: bad node");
-				/* TODO: Proper EH. */
-				abort();
+				/* TODO: Better EH. */
+				py_fatal("py_compile_assign: bad node");
 			}
 		}
 	}
@@ -964,9 +927,8 @@ static void py_compile_return_statement(
 	PY_REQ(n, PY_GRAMMAR_RETURN_STATEMENT);
 
 	if(!c->in_function) {
-		py_error_set_string(py_type_error, "'return' outside function");
-		/* TODO: Proper EH. */
-		abort();
+		/* TODO: Better EH. */
+		py_fatal("'return' outside function");
 	}
 
 	if(n->count == 2) {
@@ -1095,10 +1057,9 @@ static void py_compile_for_statement(
 	py_compile_add_forward_reference(c, PY_OP_SETUP_LOOP, &break_anchor);
 	py_compile_node(c, &n->children[3]);
 
-	v = py_int_new(0);
-	if(v == NULL) {
-		/* TODO: Proper EH. */
-		abort();
+	if(!(v = py_int_new(0))) {
+		/* TODO: Better EH. */
+		py_fatal("oom");
 	}
 
 	py_compile_add_op_arg(c, PY_OP_LOAD_CONST, py_compile_add_const(c, v));
@@ -1246,10 +1207,8 @@ static void py_compile_try_statement(
 			 * 'except' [PY_GRAMMAR_EXPRESSION [',' PY_GRAMMAR_EXPRESSION]]
 			 */
 			if(except_anchor == 0) {
-				py_error_set_string(
-						py_type_error, "default 'except:' must be last");
-				/* TODO: Proper EH. */
-				abort();
+				/* TODO: Better EH. */
+				py_fatal("default 'except:' must be last");
 			}
 
 			except_anchor = 0;
@@ -1313,17 +1272,15 @@ static void py_compile_function_definition(
 	 */
 	PY_REQ(n, PY_GRAMMAR_FUNCTION_DEFINITION);
 
-	v = (struct py_object*) py_compile(n, c->filename);
-	if(v == NULL) {
-		/* TODO: Proper EH. */
-		abort();
+	if(!(v = (void*) py_compile(n, c->filename))) {
+		/* TODO: Better EH. */
+		py_fatal("failed to compile");
 	}
-	else {
-		py_compile_add_op_arg(c, PY_OP_LOAD_CONST, py_compile_add_const(c, v));
-		py_compile_add_byte(c, PY_OP_BUILD_FUNCTION);
-		py_compile_add_op_name(c, PY_OP_STORE_NAME, &n->children[1]);
-		py_object_decref(v);
-	}
+
+	py_compile_add_op_arg(c, PY_OP_LOAD_CONST, py_compile_add_const(c, v));
+	py_compile_add_byte(c, PY_OP_BUILD_FUNCTION);
+	py_compile_add_op_name(c, PY_OP_STORE_NAME, &n->children[1]);
+	py_object_decref(v);
 }
 
 static void py_compile_class_definition(
@@ -1346,19 +1303,17 @@ static void py_compile_class_definition(
 	py_compile_add_op_arg(
 			c, PY_OP_LOAD_CONST, py_compile_add_const(c, PY_NONE));
 
-	v = (struct py_object*) py_compile(n, c->filename);
-	if(v == NULL) {
-		/* TODO: Proper EH. */
-		abort();
+	if(!(v = (void*) py_compile(n, c->filename))) {
+		/* TODO: Better EH. */
+		py_fatal("failed to compile");
 	}
-	else {
-		py_compile_add_op_arg(c, PY_OP_LOAD_CONST, py_compile_add_const(c, v));
-		py_compile_add_byte(c, PY_OP_BUILD_FUNCTION);
-		py_compile_add_byte(c, PY_OP_UNARY_CALL);
-		py_compile_add_byte(c, PY_OP_BUILD_CLASS);
-		py_compile_add_op_name(c, PY_OP_STORE_NAME, &n->children[1]);
-		py_object_decref(v);
-	}
+
+	py_compile_add_op_arg(c, PY_OP_LOAD_CONST, py_compile_add_const(c, v));
+	py_compile_add_byte(c, PY_OP_BUILD_FUNCTION);
+	py_compile_add_byte(c, PY_OP_UNARY_CALL);
+	py_compile_add_byte(c, PY_OP_BUILD_CLASS);
+	py_compile_add_op_name(c, PY_OP_STORE_NAME, &n->children[1]);
+	py_object_decref(v);
 }
 
 static void py_compile_node(struct py_compiler* c, struct py_node* n) {
@@ -1405,9 +1360,8 @@ static void py_compile_node(struct py_compiler* c, struct py_node* n) {
 
 		case PY_GRAMMAR_BREAK_STATEMENT: {
 			if(c->nesting == 0) {
-				py_error_set_string(py_type_error, "'break' outside loop");
-				/* TODO: Proper EH. */
-				abort();
+				/* TODO: Better EH. */
+				py_fatal("'break' outside loop");
 			}
 
 			py_compile_add_byte(c, PY_OP_BREAK_LOOP);
@@ -1520,11 +1474,8 @@ static void py_compile_node(struct py_compiler* c, struct py_node* n) {
 		}
 
 		default: {
-			fprintf(stderr, "node type %d\n", n->type);
-			py_error_set_string(
-					py_system_error, "py_compile_node: unexpected node type");
-			/* TODO: Proper EH. */
-			abort();
+			/* TODO: Better EH. */
+			py_fatal("py_compile_node: unexpected node type");
 		}
 	}
 }
@@ -1650,10 +1601,7 @@ static void compile_node(struct py_compiler* c, struct py_node* n) {
 
 		default: {
 			/* TODO: Better EH. */
-			fprintf(stderr, "node type %d\n", n->type);
-			py_error_set_string(
-					py_system_error, "compile_node: unexpected node type");
-			abort();
+			py_fatal("compile_node: unexpected node type");
 		}
 	}
 }
@@ -1661,17 +1609,21 @@ static void compile_node(struct py_compiler* c, struct py_node* n) {
 struct py_code* py_compile(struct py_node* n, const char* filename) {
 	struct py_compiler sc;
 	struct py_code* co;
-	void* newptr;
 
 	if(!py_compiler_new(&sc, filename)) return 0;
 
 	compile_node(&sc, n);
 
-	newptr = realloc(sc.code, sc.offset);
-	if(!newptr) return NULL; /* TODO: Free dead compiler. */
-	sc.code = newptr;
+	sc.code = asys_memory_reallocate_safe(sc.code, sc.offset);
+	if(!sc.code) {
+		/* TODO: Better EH. */
+		/* TODO: Free dead compiler. */
+		py_fatal("oom");
+	}
+
 	sc.len = sc.offset;
 
+	/* TODO: EH. */
 	co = py_code_new(sc.code, sc.consts, sc.names, filename);
 
 	py_compiler_delete(&sc);
@@ -1681,10 +1633,10 @@ struct py_code* py_compile(struct py_node* n, const char* filename) {
 void py_code_dealloc(struct py_object* op) {
 	struct py_code* co = (struct py_code*) op;
 
-	free(co->code);
+	asys_memory_free(co->code);
 	py_object_decref(co->consts);
 	py_object_decref(co->names);
 	py_object_decref(co->filename);
 
-	free(op);
+	asys_memory_free(op);
 }
