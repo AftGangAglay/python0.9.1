@@ -8,6 +8,7 @@
 #include <python/grammar.h>
 
 #include <asys/stream.h>
+#include <asys/string.h>
 
 static enum asys_result py_dfa_print_arcs(
 		unsigned i, struct py_dfa* dfa, struct asys_stream* stream) {
@@ -35,7 +36,7 @@ static enum asys_result py_dfa_print_arcs(
 			if(result) return result;
 		}
 
-		result = asys_stream_write_format(stream, "};\n");
+		result = asys_stream_write_format(stream, "};\n\n");
 		if(result) return result;
 	}
 
@@ -71,7 +72,7 @@ static enum asys_result py_grammar_print_states(
 			if(result) return result;
 		}
 
-		result = asys_stream_write_format(stream, "};\n");
+		result = asys_stream_write_format(stream, "};\n\n");
 		if(result) return result;
 	}
 
@@ -101,21 +102,26 @@ static enum asys_result py_grammar_print_dfas(
 
 		if(result) return result;
 
-		result = asys_stream_write_format(stream, "\t (py_byte_t*) \"");
+		result = asys_stream_write_format(stream, "\t\t(py_byte_t*) \"");
 		if(result) return result;
 
 		for(j = 0; j < PY_NBYTES(grammar->labels.count); j++) {
-			result = asys_stream_write_format(
-					stream, "\\%03o", dfa->first[j] & 0xFF);
+			static char buffer[5];
+			/* TODO: Temporary. */
+			extern int sprintf(char*, const char*, ...);
+			sprintf(buffer, "\\%03o", dfa->first[j] & 0xFF);
+
+			result = asys_stream_write(
+					stream, buffer, asys_string_length(buffer));
 
 			if(result) return result;
 		}
 
-		result = asys_stream_write_format(stream, "\"},\n");
+		result = asys_stream_write_format(stream, "\"\n\t},\n");
 		if(result) return result;
 	}
 
-	return asys_stream_write_format(stream, "};\n");
+	return asys_stream_write_format(stream, "};\n\n");
 }
 
 static enum asys_result py_grammar_print_labels(
@@ -148,7 +154,7 @@ static enum asys_result py_grammar_print_labels(
 		}
 	}
 
-	return asys_stream_write_format(stream, "};\n");
+	return asys_stream_write_format(stream, "};\n\n");
 }
 
 enum asys_result py_grammar_print(
@@ -156,7 +162,9 @@ enum asys_result py_grammar_print(
 
 	enum asys_result result;
 
-	result = asys_stream_write_format(stream, "#include <python/grammar.h>\n");
+	result = asys_stream_write_format(
+			stream, "#include <python/grammar.h>\n\n");
+
 	if(result) return result;
 
 	if((result = py_grammar_print_dfas(grammar, stream))) return result;
@@ -170,7 +178,7 @@ enum asys_result py_grammar_print(
 				"\t{ %d, labels },\n"
 				"\t%d,\n"
 				"\t0\n"
-			"};\n",
+			"};\n\n",
 			grammar->count,
 			grammar->labels.count,
 			grammar->start);

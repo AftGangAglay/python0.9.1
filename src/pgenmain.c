@@ -96,3 +96,26 @@ enum asys_result asys_main(struct asys_main_data* main_data) {
 void py_fatal(const char* msg) {
 	asys_result_fatal(__FILE__, msg, ASYS_RESULT_ERROR);
 }
+
+#ifdef ASYS_WIN32
+# include <asys/system.h>
+
+const char* const asys_global_win32_class_name = "pgen";
+
+enum asys_result asys_win32_register_class(void* out, void* module) {
+	WNDCLASS* out_class = out;
+
+	out_class->style = 0;
+	out_class->lpfnWndProc = 0;
+	out_class->cbClsExtra = 0;
+	out_class->cbWndExtra = sizeof(asys_native_long_t);
+	out_class->hInstance = module;
+	out_class->hIcon = 0;
+	out_class->hCursor = 0;
+	out_class->hbrBackground = 0;
+	out_class->lpszMenuName = 0;
+	out_class->lpszClassName = asys_global_win32_class_name;
+
+	return ASYS_RESULT_OK;
+}
+#endif

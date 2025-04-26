@@ -49,6 +49,7 @@ static struct py_object* py_get_module(
 
 	static const char suffix[] = ".py.raw";
 
+	/* TODO: Bad. */
 	char buf[255 + 1] = { 0 };
 	unsigned i;
 
