@@ -112,7 +112,7 @@ static enum asys_result py_grammar_print_dfas(
 			sprintf(buffer, "\\%03o", dfa->first[j] & 0xFF);
 
 			result = asys_stream_write(
-					stream, buffer, asys_string_length(buffer));
+					stream, 0, buffer, asys_string_length(buffer));
 
 			if(result) return result;
 		}

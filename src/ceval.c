@@ -630,7 +630,7 @@ struct py_object* py_code_eval(
 				w = *--stack_pointer; /* Loop index */
 				v = *--stack_pointer; /* Sequence struct py_object*/
 
-				if (!py_is_varobject(v)) {
+				if(!py_is_varobject(v)) {
 					py_error_set_string(
 							py_type_error, "loop over non-sequence");
 
@@ -638,7 +638,7 @@ struct py_object* py_code_eval(
 					break;
 				}
 
-				if (!(u = py_loop_subscript(v, w))) {
+				if(!(u = py_loop_subscript(v, w))) {
 					py_object_decref(v);
 					py_object_decref(w);
 
@@ -646,7 +646,7 @@ struct py_object* py_code_eval(
 					break;
 				}
 
-				if (!(x = py_int_new(py_int_get(w) + 1))) {
+				if(!(x = py_int_new(py_int_get(w) + 1))) {
 					py_error_set_nomem();
 					why = PY_WHY_EXCEPTION;
 				}
