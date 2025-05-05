@@ -180,9 +180,7 @@ struct py_object* py_loop_subscript(struct py_object* v, struct py_object* w) {
 
 /*
  * TODO: Perform null checks on all of these inputs in debug mode -- broken
- * 		 Bytecode ops seem to cause issues here. Devbuilds don't need to since
- * 		 User code should never cause a segfault if our script engine is
- * 		 Doing its job properly.
+ * 		 Bytecode ops seem to cause issues here.
  */
 struct py_object* py_object_get_attr(struct py_object* v, const char* name) {
 	switch(v->type) {
