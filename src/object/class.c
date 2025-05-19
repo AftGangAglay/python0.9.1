@@ -78,7 +78,7 @@ struct py_object* py_class_member_get_attr(
 	if(!(v = py_class_get_attr((void*) cm->class, name))) return v;
 
 	if(v->type == PY_TYPE_FUNC) {
-		struct py_object* w = py_class_method_new(v, (struct py_object*) cm);
+		struct py_object* w = py_class_method_new(v, op);
 		py_object_decref(v);
 		return w;
 	}
