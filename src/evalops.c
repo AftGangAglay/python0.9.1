@@ -262,8 +262,8 @@ struct py_object* py_call_function(
 			globals = py_object_incref(((struct py_func*) func)->globals);
 
 			retval = py_code_eval(
-					env, (void*) ((struct py_func*) func)->code, globals,
-					locals, args);
+					env, (struct py_code*) ((struct py_func*) func)->code,
+					globals, locals, args);
 
 			py_object_decref(locals);
 			py_object_decref(globals);
