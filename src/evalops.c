@@ -19,6 +19,7 @@
 #include <asys/math.h>
 
 /* Test a value used as condition, e.g., in a for or if statement */
+/* TODO: `if(obj.non_existent_member):' segfaults here. */
 int py_object_truthy(struct py_object* v) {
 	if(v->type == PY_TYPE_INT) return py_int_get(v) != 0;
 	else if(v->type == PY_TYPE_FLOAT) return py_float_get(v) != 0.0;
@@ -68,6 +69,7 @@ struct py_object* py_object_sub(struct py_object* v, struct py_object* w) {
 	return 0;
 }
 
+/* TODO: Improve message when types don't match. */
 struct py_object* py_object_mul(struct py_object* v, struct py_object* w) {
 	if(v->type == PY_TYPE_INT && w->type == PY_TYPE_INT) {
 		return py_int_new(py_int_get(v) * py_int_get(w));
@@ -102,6 +104,7 @@ struct py_object* py_object_mod(struct py_object* v, struct py_object* w) {
 	return 0;
 }
 
+/* TODO: Better EH for attempting to assign past list end. */
 int py_assign_subscript(
 		struct py_object* op, struct py_object* key, struct py_object* value) {
 
