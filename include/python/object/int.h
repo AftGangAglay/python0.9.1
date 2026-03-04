@@ -32,9 +32,6 @@ struct py_int {
 	struct py_object ob;
 	py_value_t value;
 };
-#ifdef __GNUC__
-# pragma GCC diagnostic pop
-#endif
 
 struct py_object* py_int_new(py_value_t);
 py_value_t py_int_get(const struct py_object*);
