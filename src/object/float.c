@@ -35,3 +35,17 @@ int py_float_cmp(const struct py_object* v, const struct py_object* w) {
 
 	return (i < j) ? -1 : (i > j) ? 1 : 0;
 }
+
+enum asys_result py_float_serialize(
+		struct py_object* object, struct py_serialization_context* context) {
+
+	enum asys_result result;
+	struct py_float* float_object = (struct py_float*) object;
+
+	result = asys_stream_write(
+			context->stream, 0, &float_object->value, sizeof(double));
+
+	if(result) return result;
+
+	return ASYS_RESULT_OK;
+}

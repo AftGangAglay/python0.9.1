@@ -48,6 +48,8 @@ int py_dict_remove(struct py_object*, const char*);
 unsigned py_dict_size(struct py_object*);
 const char* py_dict_get_key(struct py_object*, unsigned);
 void py_dict_dealloc(struct py_object*);
+enum asys_result py_dict_serialize(
+		struct py_object*, struct py_serialization_context*);
 
 void py_done_dict(void);
 

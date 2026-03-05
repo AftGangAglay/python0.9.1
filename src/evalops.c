@@ -43,7 +43,7 @@ struct py_object* py_object_neg(struct py_object* v) {
 }
 
 struct py_object* py_object_add(struct py_object* v, struct py_object* w) {
-	py_cat_t cat;
+	py_concatenate_t cat;
 
 	if(v->type == PY_TYPE_INT && w->type == PY_TYPE_INT) {
 		return py_int_new(py_int_get(v) + py_int_get(w));
@@ -133,7 +133,7 @@ int py_assign_subscript(
 }
 
 struct py_object* py_object_ind(struct py_object* v, struct py_object* w) {
-	py_ind_t ind;
+	py_index_t ind;
 
 	if((ind = py_types[v->type].ind)) {
 		if(w->type != PY_TYPE_INT) return 0;

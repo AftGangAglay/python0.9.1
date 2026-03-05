@@ -35,9 +35,10 @@ struct py_int {
 
 struct py_object* py_int_new(py_value_t);
 py_value_t py_int_get(const struct py_object*);
-
 int py_int_cmp(const struct py_object*, const struct py_object*);
 void py_int_dealloc(struct py_object*);
+enum asys_result py_int_serialize(
+		struct py_object*, struct py_serialization_context*);
 
 /*
  * False and True are special intobjects used by Boolean expressions.

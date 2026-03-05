@@ -144,3 +144,21 @@ struct py_object* py_list_cat(struct py_object* a, struct py_object* b) {
 
 	return (void*) np;
 }
+
+enum asys_result py_list_serialize(
+		struct py_object* object, struct py_serialization_context* context) {
+
+	enum asys_result result;
+	struct py_list* list = (struct py_list*) object;
+	asys_size_t i;
+
+	for(i = 0; list->item[i]; ++i) {
+		result = py_serialization_context_write_object(context, list->item[i]);
+		if(result) return result;
+	}
+
+	result = py_serialization_context_write_object(context, PY_NONE);
+	if(result) return result;
+
+	return ASYS_RESULT_OK;
+}

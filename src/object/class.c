@@ -87,6 +87,26 @@ struct py_object* py_class_member_get_attr(
 	return 0;
 }
 
+enum asys_result py_class_member_serialize(
+		struct py_object* object, struct py_serialization_context* ctx) {
+
+	enum asys_result result;
+
+	struct py_class_member* class_member = (struct py_class_member*) object;
+
+	result = py_serialization_context_write_object(
+			ctx, (struct py_object*) class_member->class);
+
+	if(result) return result;
+
+	result = py_serialization_context_write_object(
+			ctx, class_member->attr);
+
+	if(result) return result;
+
+	return ASYS_RESULT_OK;
+}
+
 /* And finally, here are class method objects */
 /* (Really methods of class members) */
 

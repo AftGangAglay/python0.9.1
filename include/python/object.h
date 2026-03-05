@@ -117,6 +117,8 @@ struct py_varobject {
 #endif
 };
 
+#include <python/serialization.h>
+
 /*
  * Type objects contain a string containing the type name (to help somewhat
  * in debugging), the allocation parameters (see newobj() and newvarobj()),
@@ -134,8 +136,10 @@ struct py_varobject {
 typedef void (*py_dealloc_t)(struct py_object*);
 typedef int (*py_cmp_t)(const struct py_object*, const struct py_object*);
 
-typedef struct py_object* (*py_cat_t)(struct py_object*, struct py_object*);
-typedef struct py_object* (*py_ind_t)(struct py_object*, unsigned);
+typedef struct py_object* (*py_concatenate_t)(
+		struct py_object*, struct py_object*);
+
+typedef struct py_object* (*py_index_t)(struct py_object*, unsigned);
 typedef struct py_object* (*py_slice_t)(struct py_object*, unsigned, unsigned);
 
 struct py_type_info {
@@ -145,13 +149,16 @@ struct py_type_info {
 	py_dealloc_t dealloc;
 	py_cmp_t cmp;
 
-	py_cat_t cat;
-	py_ind_t ind;
+	py_concatenate_t cat;
+	py_index_t ind;
 	py_slice_t slice;
+
+	py_serialize_t serialize;
+	py_deserialize_t deserialize;
 };
 
 /* TODO: Python global state. */
-extern struct py_type_info py_types[PY_TYPE_MAX];
+extern const struct py_type_info py_types[PY_TYPE_MAX];
 
 /* Generic operations on objects */
 

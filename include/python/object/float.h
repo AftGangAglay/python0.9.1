@@ -23,5 +23,7 @@ struct py_object* py_float_new(double);
 void py_float_dealloc(struct py_object*);
 double py_float_get(const struct py_object*);
 int py_float_cmp(const struct py_object*, const struct py_object*);
+enum asys_result py_float_serialize(
+		struct py_object*, struct py_serialization_context*);
 
 #endif

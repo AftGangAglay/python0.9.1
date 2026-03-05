@@ -40,4 +40,7 @@ struct py_object* py_tuple_cat(struct py_object*, struct py_object*);
 struct py_object* py_tuple_ind(struct py_object*, unsigned);
 struct py_object* py_tuple_slice(struct py_object*, unsigned, unsigned);
 
+enum asys_result py_tuple_serialize(
+		struct py_object*, struct py_serialization_context*);
+
 #endif

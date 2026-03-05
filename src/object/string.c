@@ -99,3 +99,17 @@ int py_string_cmp(const struct py_object* a, const struct py_object* b) {
 
 	return 0;
 }
+
+enum asys_result py_string_serialize(
+		struct py_object* object, struct py_serialization_context* context) {
+
+	enum asys_result result;
+	struct py_string* string = (struct py_string*) object;
+
+	asys_size_t length = asys_string_length(string->value);
+
+	result = asys_stream_write(context->stream, 0, string->value, length + 1);
+	if(result) return result;
+
+	return ASYS_RESULT_OK;
+}

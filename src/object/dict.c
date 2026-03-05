@@ -299,6 +299,35 @@ void py_dict_dealloc(struct py_object* op) {
 	asys_memory_free(op);
 }
 
+enum asys_result py_dict_serialize(
+		struct py_object* object, struct py_serialization_context* context) {
+
+	enum asys_result result;
+	struct py_dict* dictionary = (struct py_dict*) object;
+	asys_size_t i;
+
+	for(i = 0; i < dictionary->size; ++i) {
+		struct py_object* value;
+
+		struct py_object* key = py_dict_get_key_impl(object, i);
+		if(key == 0) continue;
+
+		result = py_serialization_context_write_object(context, key);
+		if(result) return result;
+
+		value = py_dict_lookup_object(object, key);
+		if(!value) return ASYS_RESULT_MISSING_KEY;
+
+		result = py_serialization_context_write_object(context, value);
+		if(result) return result;
+	}
+
+	result = py_serialization_context_write_object(context, PY_NONE);
+	if(result) return result;
+
+	return ASYS_RESULT_OK;
+}
+
 struct py_object* py_dict_lookup_object(
 		struct py_object* dp, struct py_object* v) {
 
@@ -312,9 +341,9 @@ struct py_object* py_dict_lookup_object(
 int py_dict_assign(
 		struct py_object* dp, struct py_object* v, struct py_object* w) {
 
-	if(!w) return py_dict_remove_impl((void*) dp, v);
+	if(!w) return py_dict_remove_impl(dp, v);
 
-	return py_dict_insert_impl((void*) dp, v, w);
+	return py_dict_insert_impl(dp, v, w);
 }
 
 void py_done_dict(void) {

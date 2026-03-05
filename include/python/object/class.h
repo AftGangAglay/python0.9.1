@@ -40,6 +40,8 @@ void py_class_dealloc(struct py_object*);
 struct py_object* py_class_member_new(struct py_object*);
 struct py_object* py_class_member_get_attr(struct py_object*, const char*);
 void py_class_member_dealloc(struct py_object*);
+enum asys_result py_class_member_serialize(
+		struct py_object*, struct py_serialization_context*);
 
 struct py_object* py_class_method_new(struct py_object*, struct py_object*);
 struct py_object* py_class_method_get_func(struct py_object*);

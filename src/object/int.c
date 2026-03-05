@@ -82,3 +82,17 @@ int py_int_cmp(const struct py_object* v, const struct py_object* w) {
 
 	return (i < j) ? -1 : (i > j) ? 1 : 0;
 }
+
+enum asys_result py_int_serialize(
+		struct py_object* object, struct py_serialization_context* context) {
+
+	enum asys_result result;
+	struct py_int* int_object = (struct py_int*) object;
+
+	result = asys_stream_write(
+			context->stream, 0, &int_object->value, sizeof(py_value_t));
+
+	if(result) return result;
+
+	return ASYS_RESULT_OK;
+}

@@ -42,5 +42,7 @@ struct py_object* py_string_ind(struct py_object*, unsigned);
 struct py_object* py_string_slice(struct py_object*, unsigned, unsigned);
 
 int py_string_cmp(const struct py_object*, const struct py_object*);
+enum asys_result py_string_serialize(
+		struct py_object*, struct py_serialization_context*);
 
 #endif

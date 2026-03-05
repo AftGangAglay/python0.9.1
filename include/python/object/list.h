@@ -40,4 +40,7 @@ struct py_object* py_list_cat(struct py_object*, struct py_object*);
 struct py_object* py_list_ind(struct py_object*, unsigned);
 struct py_object* py_list_slice(struct py_object*, unsigned, unsigned);
 
+enum asys_result py_list_serialize(
+		struct py_object*, struct py_serialization_context*);
+
 #endif
