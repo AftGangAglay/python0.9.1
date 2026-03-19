@@ -18,6 +18,7 @@
 
 struct py_class {
 	struct py_object ob;
+	struct py_object* name;
 	struct py_object* attr; /* A dictionary */
 };
 

@@ -95,7 +95,7 @@ enum asys_result py_class_member_serialize(
 	struct py_class_member* class_member = (struct py_class_member*) object;
 
 	result = py_serialization_context_write_object(
-			ctx, (struct py_object*) class_member->class);
+			ctx, class_member->class->name);
 
 	if(result) return result;
 

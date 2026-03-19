@@ -31,12 +31,18 @@ typedef enum asys_result (*py_serialize_t)(
 		struct py_object*, struct py_serialization_context*);
 
 typedef enum asys_result (*py_deserialize_t)(
-		struct py_object*, struct py_serialization_context*);
+		struct py_object**, struct py_serialization_context*);
 
 enum asys_result py_object_serialize(
 		struct py_object*, struct asys_stream*, enum py_serialization_scheme);
 
 enum asys_result py_serialization_context_write_object(
 		struct py_serialization_context*, struct py_object*);
+
+enum asys_result py_object_deserialize(
+		struct py_object**, struct asys_stream*, enum py_serialization_scheme);
+
+enum asys_result py_serialization_context_read_object(
+		struct py_serialization_context*, struct py_object**);
 
 #endif

@@ -8,6 +8,8 @@
 
 #include <asys/memory.h>
 
+static const enum py_type py_global_redirect_type = PY_TYPE_MAX;
+
 enum asys_result py_object_serialize(
 		struct py_object* object, struct asys_stream* stream,
 		enum py_serialization_scheme scheme) {
@@ -17,21 +19,11 @@ enum asys_result py_object_serialize(
 	ctx.stream = stream;
 	ctx.scheme = scheme;
 
-	switch(scheme) {
-		case PY_SERIALIZE_BINARY: {
-			return py_serialization_context_write_object(&ctx, object);
-		}
-
-		default: break;
-	}
-
-	return ASYS_RESULT_INVALID_CONTROL;
+	return py_serialization_context_write_object(&ctx, object);
 }
 
 enum asys_result py_serialization_context_write_object(
 		struct py_serialization_context* ctx, struct py_object* object) {
-
-	static const enum py_type redirect_type = PY_TYPE_MAX;
 
 	enum asys_result result;
 	py_serialize_t serialize;
@@ -42,7 +34,8 @@ enum asys_result py_serialization_context_write_object(
 
 		if(serialized->object == object) {
 			result = asys_stream_write(
-					ctx->stream, 0, &redirect_type, sizeof(enum py_type));
+					ctx->stream, 0, &py_global_redirect_type,
+                    sizeof(enum py_type));
 
 			if(result) return result;
 
@@ -71,6 +64,27 @@ enum asys_result py_serialization_context_write_object(
 	if(serialize) {
 		serialize(object, ctx);
 	}
+
+	return ASYS_RESULT_OK;
+}
+
+enum asys_result py_object_deserialize(
+		struct py_object** object, struct asys_stream* stream,
+		enum py_serialization_scheme scheme) {
+
+	struct py_serialization_context ctx = { 0 };
+
+	ctx.stream = stream;
+	ctx.scheme = scheme;
+
+	return py_serialization_context_read_object(&ctx, object);
+}
+
+enum asys_result py_serialization_context_read_object(
+		struct py_serialization_context* context, struct py_object** object) {
+
+    (void) context;
+	(void) object;
 
 	return ASYS_RESULT_OK;
 }
