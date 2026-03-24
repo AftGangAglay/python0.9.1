@@ -152,7 +152,7 @@ enum asys_result py_list_serialize(
 	struct py_list* list = (struct py_list*) object;
 	asys_size_t i;
 
-	for(i = 0; list->item[i]; ++i) {
+	for(i = 0; i < py_varobject_size(list); ++i) {
 		result = py_serialization_context_write_object(context, list->item[i]);
 		if(result) return result;
 	}

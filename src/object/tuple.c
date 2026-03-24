@@ -121,7 +121,7 @@ enum asys_result py_tuple_serialize(
 	struct py_tuple* tuple = (struct py_tuple*) object;
 	asys_size_t i;
 
-	for(i = 0; tuple->item[i]; ++i) {
+	for(i = 0; i < py_varobject_size(tuple); ++i) {
 		result = py_serialization_context_write_object(
 				context, tuple->item[i]);
 
