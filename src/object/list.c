@@ -73,6 +73,25 @@ int py_list_add(struct py_object* op, struct py_object* item) {
 	return py_list_insert_impl((void*) op, py_varobject_size(op), item);
 }
 
+void py_list_remove(struct py_object* op, unsigned where) {
+	struct py_list* self = (struct py_list*) op;
+	struct py_object** items = self->item;
+
+	asys_memory_move(
+			&items[where], &items[where + 1],
+			(self->ob.size - where - 1) * sizeof(struct py_object*));
+
+	items = asys_memory_reallocate(
+			self->item, --self->ob.size * sizeof(struct py_object*));
+
+	/*
+	 * It's okay if we fail to reallocate since we've removed the object and
+	 * Reduced the logical size, so worst case scenario we end up asking for
+	 * Reallocs that do nothing after this.
+	 */
+	if(items) self->item = items;
+}
+
 /* Methods */
 void py_list_dealloc(struct py_object* op) {
 	unsigned i;

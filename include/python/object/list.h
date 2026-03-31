@@ -32,6 +32,7 @@ struct py_object* py_list_get(const struct py_object*, unsigned);
 void py_list_set(struct py_object*, unsigned, struct py_object*);
 int py_list_insert(struct py_object*, unsigned, struct py_object*);
 int py_list_add(struct py_object*, struct py_object*);
+void py_list_remove(struct py_object*, unsigned);
 
 void py_list_dealloc(struct py_object*);
 int py_list_cmp(const struct py_object*, const struct py_object*);

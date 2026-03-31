@@ -201,7 +201,7 @@ static struct py_object* py_builtin_insert(
 	(void) env;
 	(void) self;
 
-	if(!args || args->type != PY_TYPE_TUPLE || py_varobject_size(args) != 2 ||
+	if(!args || args->type != PY_TYPE_TUPLE || py_varobject_size(args) != 3 ||
 			!(lp = py_tuple_get(args, 0)) || lp->type != PY_TYPE_LIST ||
 			!(ind = py_tuple_get(args, 1)) || ind->type != PY_TYPE_INT ||
 			!(op = py_tuple_get(args, 2))) {
@@ -216,6 +216,44 @@ static struct py_object* py_builtin_insert(
 	}
 
 	return py_object_incref(PY_NONE);
+}
+
+static struct py_object* py_builtin_remove(
+		struct py_env* env, struct py_object* self, struct py_object* args) {
+
+	struct py_object* lp;
+	struct py_object* ind;
+
+	(void) env;
+	(void) self;
+
+	if(!args || args->type != PY_TYPE_TUPLE || py_varobject_size(args) != 2 ||
+			!(lp = py_tuple_get(args, 0)) || lp->type != PY_TYPE_LIST ||
+			!(ind = py_tuple_get(args, 1))) {
+
+		py_error_set_badarg();
+		return 0;
+	}
+
+	if(ind->type == PY_TYPE_INT) {
+		py_list_remove(lp, (unsigned) py_int_get(ind));
+		return py_object_incref(PY_NONE);
+	}
+	else {
+		/* TODO: This is not working. */
+		struct py_list* list = (struct py_list*) lp;
+		asys_size_t i;
+
+		for(i = 0; i < py_varobject_size(list); ++i) {
+			if(list->item[i] == ind) {
+				py_list_remove(lp, (unsigned) py_int_get(ind));
+				return py_object_incref(PY_NONE);
+			}
+		}
+	}
+
+	py_error_set_key();
+	return 0;
 }
 
 static struct py_object* py_builtin_pass(
@@ -259,6 +297,7 @@ static struct py_methodlist py_builtin_methods[] = {
 		{ "range", py_builtin_range },
 		{ "append", py_builtin_append },
 		{ "insert", py_builtin_insert },
+		{ "remove", py_builtin_remove },
 		{ "pass", py_builtin_pass },
 		{ "notv", py_builtin_notv },
 		{ 0, 0 }

@@ -676,7 +676,8 @@ struct py_object* py_code_eval(
 			}
 
 			case PY_OP_SET_LINENO: {
-				lineno = oparg;
+				/* TODO: This is off-by-one. */
+				lineno = oparg + 1;
 				break;
 			}
 
